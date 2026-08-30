@@ -115,3 +115,60 @@ validation used the explicit disposable URL above.
 
 The report is committed separately after the immutable feature commit so it can
 record that commit SHA.
+
+## Review round 1: fresh-clone Alembic database parent
+
+Review finding: `alembic.ini` correctly used the application default
+`sqlite:///db/workspace.sqlite`, but a fresh clone has no `db/` directory.
+Alembic attempted its first SQLite connection before any code created that
+parent and therefore could not open the file.
+
+Review-fix commit: `ffd4f94aef53449f3c9207cc41e608f01a3a228c`.
+
+RED evidence, with no `db/` directory present:
+
+```text
+$ uv run alembic upgrade head
+sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) unable to open database file
+```
+
+The focused regression test was then added before production code. It creates a
+real engine for `tmp_path / "missing" / "nested" / "metadata.sqlite"` and
+connects to it. Before the fix, that test failed with the same SQLite
+`OperationalError`; the focused suite result was `1 failed, 8 passed`.
+
+The shared `ensure_sqlite_file_parent(database_url)` helper parses URLs with
+SQLAlchemy, creates only the parent for file-backed SQLite paths, and skips
+non-SQLite, database-less, and `:memory:` URLs. It is invoked from both
+`create_session_factory` and Alembic's online migration path before engine
+construction.
+
+GREEN/default-migration evidence:
+
+```text
+$ uv run pytest tests/storage/test_snapshot_repository.py -v
+9 passed in 0.11s
+
+$ uv run alembic upgrade head
+Running upgrade  -> 0001_snapshot_metadata
+
+$ git check-ignore -v db/workspace.sqlite
+.gitignore:23:db/*.sqlite*  db/workspace.sqlite
+```
+
+The generated `db/workspace.sqlite` and its empty `db/` parent were removed
+after the check; neither runtime state nor a cache was staged. Final suite:
+
+```text
+$ uv run pytest -v
+20 passed in 0.23s
+
+$ uv run ruff check src tests migrations
+All checks passed!
+
+$ uv run mypy src/argusfinance
+Success: no issues found in 15 source files
+
+$ git diff --check
+exit 0 (no output)
+```
