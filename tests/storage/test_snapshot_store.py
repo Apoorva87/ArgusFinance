@@ -136,3 +136,23 @@ def test_failed_atomic_replace_cleans_temporary_file(
         snapshot_store.write(snapshot)
 
     assert list(snapshot_store.root.rglob("*.tmp")) == []
+
+
+def test_write_rejects_ticker_path_traversal_before_creating_outside_root(
+    tmp_path: Path, snapshot  # type: ignore[no-untyped-def]
+) -> None:
+    store_root = tmp_path / "store"
+    outside_path = tmp_path / "escaped"
+    store = SnapshotStore(store_root)
+    crafted = snapshot.model_copy(
+        update={
+            "underlying": snapshot.underlying.model_copy(
+                update={"ticker": "EVIL/../../../escaped"}
+            )
+        }
+    )
+
+    with pytest.raises(ValueError, match="safe partition token"):
+        store.write(crafted)
+
+    assert not outside_path.exists()

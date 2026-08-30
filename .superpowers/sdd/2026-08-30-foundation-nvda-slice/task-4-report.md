@@ -62,3 +62,29 @@ Implementation commit: `8a6d7efeafdd6a8ea3f6ff505990b88c6742f5b7`
 
 None. PyArrow lacks a `py.typed` marker in this environment, so its two imports
 use narrowly scoped `import-untyped` mypy suppressions.
+
+## Review round 1: ticker traversal containment
+
+Added a RED regression using the domain-valid ticker
+`EVIL/../../../escaped`. Before the fix,
+`test_write_rejects_ticker_path_traversal_before_creating_outside_root` failed
+with `Failed: DID NOT RAISE ValueError`, demonstrating that `write` accepted a
+path-traversal ticker.
+
+The store now accepts only uppercase alphanumeric ticker partition tokens with
+embedded `.`, `-`, or alphanumerics, and rejects all separators and traversal
+segments with `SnapshotPathError`. It resolves and asserts containment of both
+the final destination and temporary sibling within the injected store root
+before `mkdir`, temporary creation, or writing. The regression additionally
+asserts that no outside directory is created; the pre-existing NVDA exact-path
+test remains green.
+
+Review verification:
+
+```text
+uv run pytest tests/storage/test_snapshot_store.py -v  # 9 passed
+uv run pytest -v                                      # 29 passed
+uv run ruff check src tests migrations                 # All checks passed
+uv run mypy src/argusfinance                           # Success: no issues found in 16 source files
+git diff --check                                       # exit 0
+```

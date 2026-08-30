@@ -1,6 +1,7 @@
 """Immutable, normalized Parquet storage for market snapshots."""
 
 import os
+import re
 from datetime import UTC
 from pathlib import Path
 from typing import Any
@@ -24,6 +25,10 @@ class SnapshotNotFoundError(LookupError):
 
 class SnapshotConflictError(ValueError):
     """Raised when a UUID-addressed immutable snapshot would be changed."""
+
+
+class SnapshotPathError(ValueError):
+    """Raised when snapshot storage would use an unsafe filesystem path."""
 
 
 _SCHEMA = pa.schema(
@@ -74,9 +79,9 @@ class SnapshotStore:
                 f"snapshot {canonical.snapshot_id} already exists with different immutable content"
             )
 
-        path = self._path_for(canonical)
+        path = self._contained_destination(self._path_for(canonical))
+        temporary = self._contained_destination(path.with_suffix(".parquet.tmp"))
         path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = path.with_suffix(".parquet.tmp")
         try:
             pq.write_table(pa.Table.from_pylist(_rows(canonical), schema=_SCHEMA), temporary)
             os.replace(temporary, path)
@@ -117,13 +122,20 @@ class SnapshotStore:
             path.unlink(missing_ok=True)
 
     def _path_for(self, snapshot: MarketSnapshot) -> Path:
+        ticker = _ticker_partition_token(snapshot.underlying.ticker)
         return (
             self.root
             / "market"
-            / f"ticker={snapshot.underlying.ticker}"
+            / f"ticker={ticker}"
             / f"date={snapshot.created_at.astimezone(UTC).date().isoformat()}"
             / f"snapshot={snapshot.snapshot_id}.parquet"
         )
+
+    def _contained_destination(self, path: Path) -> Path:
+        resolved = path.resolve()
+        if not resolved.is_relative_to(self.root):
+            raise SnapshotPathError("snapshot destination must remain inside the store root")
+        return resolved
 
     def _paths_for_snapshot(self, snapshot_id: UUID) -> list[Path]:
         market_root = self.root / "market"
@@ -228,3 +240,9 @@ def _parse_snapshot_id(snapshot_id: UUID | str) -> UUID:
         return UUID(str(snapshot_id))
     except (TypeError, ValueError) as error:
         raise ValueError("snapshot_id must be a valid UUID") from error
+
+
+def _ticker_partition_token(ticker: str) -> str:
+    if not re.fullmatch(r"[A-Z0-9][A-Z0-9.-]*", ticker):
+        raise SnapshotPathError("ticker must be a safe partition token")
+    return ticker
