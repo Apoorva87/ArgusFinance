@@ -26,6 +26,8 @@ db/*.sqlite*
 
 # Tool caches
 .firecrawl/
+.superpowers/
+.worktrees/
 .coverage
 coverage/
 
