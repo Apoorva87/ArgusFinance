@@ -1,0 +1,35 @@
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+
+# JavaScript
+node_modules/
+dist/
+.vite/
+
+# Local application state
+data/
+db/*.sqlite*
+*.duckdb
+*.parquet
+
+# Tool caches
+.firecrawl/
+.coverage
+coverage/
+
+# Editors and operating systems
+.DS_Store
+.idea/
+.vscode/
