@@ -34,6 +34,7 @@ packages = ["src/argusfinance"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = ["--import-mode=importlib"]
 
 [tool.ruff]
 target-version = "py312"
