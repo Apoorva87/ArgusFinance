@@ -1,10 +1,10 @@
 # ArgusFinance Design Specification
 
-**Date:** 2026-08-30  
-**Status:** Approved architecture baseline  
-**Deployment model:** Local-first, single-user  
-**Primary orchestration surface:** Codex/ChatGPT plugin and local Codex clients  
-**Primary decision surface:** Local React web application  
+- **Date:** 2026-08-30
+- **Status:** Approved architecture baseline
+- **Deployment model:** Local-first, single-user
+- **Primary orchestration surface:** Codex/ChatGPT plugin and local Codex clients
+- **Primary decision surface:** Local React web application
 **Brokerage boundary:** Read-only Interactive Brokers integration in V1
 
 ## 1. Product intent
