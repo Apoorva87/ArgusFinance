@@ -1,6 +1,6 @@
 """Immutable, provider-neutral market data value objects."""
 
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from enum import Enum
 from typing import Literal
@@ -28,7 +28,7 @@ class _MarketValue(BaseModel):
     def _timestamps_must_be_timezone_aware(cls, value: datetime) -> datetime:
         if value.tzinfo is None or value.utcoffset() is None:
             raise ValueError("timestamp must be timezone-aware")
-        return value
+        return value.astimezone(UTC)
 
 
 class UnderlyingQuote(_MarketValue):

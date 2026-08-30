@@ -90,3 +90,45 @@ Deviation: the plan's obsolete `tests/fixtures/nvda_snapshot.json` location was
 intentionally not created. The canonical packaged fixture follows the task brief
 preflight ruling. The verification report is committed separately after the
 feature commit so it can record that immutable commit SHA.
+
+## Review round 1: UTC timestamp canonicalization
+
+Review finding: aware timestamps were accepted but preserved their original
+offset, leaving an otherwise equivalent `UTC-07:00` timestamp non-canonical.
+The shared timestamp validator now rejects naive values as before and converts
+every accepted `source_timestamp`, `retrieved_at`, and `created_at` to UTC with
+`astimezone(UTC)`.
+
+RED evidence, before the validator change:
+
+```text
+$ uv run pytest tests/domain/test_market.py -v
+FAILED test_market_values_normalize_aware_timestamps_to_utc
+E       assert False
+E        +  where False = all(... timestamp.tzinfo is UTC ...)
+1 failed, 4 passed in 0.05s
+```
+
+The focused test supplies the same aware UTC-07:00 instant to `UnderlyingQuote`,
+`OptionQuote`, and `MarketSnapshot`; it verifies each normalized timestamp is
+the equivalent UTC instant and carries the UTC timezone. Existing naive-input
+rejection coverage remains in place.
+
+GREEN and final verification:
+
+```text
+$ uv run pytest tests/domain/test_market.py tests/adapters/test_mock_market.py -v
+10 passed in 0.05s
+
+$ uv run pytest -v
+11 passed in 0.30s
+
+$ uv run ruff check src tests
+All checks passed!
+
+$ uv run mypy src/argusfinance
+Success: no issues found in 11 source files
+
+$ git diff --check
+exit 0 (no output)
+```

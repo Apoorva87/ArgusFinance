@@ -1,4 +1,4 @@
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta, timezone
 from decimal import Decimal
 from uuid import UUID
 
@@ -42,6 +42,43 @@ def test_quote_rejects_naive_timestamps() -> None:
             retrieved_at=datetime.fromisoformat("2026-08-28T20:00:00"),
             status=MarketDataStatus.REALTIME,
         )
+
+
+def test_market_values_normalize_aware_timestamps_to_utc() -> None:
+    pacific = timezone(timedelta(hours=-7))
+    observed = datetime(2026, 8, 28, 13, 0, tzinfo=pacific)
+    expected = datetime(2026, 8, 28, 20, 0, tzinfo=UTC)
+    quote = UnderlyingQuote(
+        ticker="NVDA",
+        price=Decimal("180.25"),
+        source="mock",
+        source_timestamp=observed,
+        retrieved_at=observed,
+        status=MarketDataStatus.REALTIME,
+    )
+    option = _option_quote(observed)
+    snapshot = MarketSnapshot(
+        snapshot_id=UUID("00000000-0000-0000-0000-000000000001"),
+        underlying=quote,
+        options=[option],
+        created_at=observed,
+    )
+
+    assert quote.source_timestamp == expected
+    assert quote.retrieved_at == expected
+    assert option.source_timestamp == expected
+    assert option.retrieved_at == expected
+    assert snapshot.created_at == expected
+    assert all(
+        timestamp.tzinfo is UTC
+        for timestamp in (
+            quote.source_timestamp,
+            quote.retrieved_at,
+            option.source_timestamp,
+            option.retrieved_at,
+            snapshot.created_at,
+        )
+    )
 
 
 def test_market_values_are_immutable() -> None:
