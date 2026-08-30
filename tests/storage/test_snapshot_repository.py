@@ -29,6 +29,18 @@ def test_snapshot_metadata_round_trip(repository: SnapshotMetadataRepository) ->
     assert repository.get(metadata.snapshot_id) == metadata
 
 
+def test_file_backed_sqlite_factory_provisions_missing_parent_directory(tmp_path: Path) -> None:
+    database_path = tmp_path / "missing" / "nested" / "metadata.sqlite"
+
+    _, engine = create_session_factory(f"sqlite:///{database_path}")
+
+    with engine.connect():
+        pass
+
+    assert database_path.parent.is_dir()
+    assert database_path.is_file()
+
+
 def test_get_returns_none_for_unknown_snapshot_id(repository: SnapshotMetadataRepository) -> None:
     assert repository.get("00000000-0000-0000-0000-000000000099") is None
 

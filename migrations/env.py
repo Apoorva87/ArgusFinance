@@ -6,6 +6,7 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+from argusfinance.storage.database import ensure_sqlite_file_parent
 from argusfinance.storage.models import Base
 
 config = context.config
@@ -36,6 +37,7 @@ def run_migrations_offline() -> None:
 
 def run_migrations_online() -> None:
     """Run migrations against the configured local database."""
+    ensure_sqlite_file_parent(config.get_main_option("sqlalchemy.url"))
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
