@@ -1,0 +1,213 @@
+"""End-to-end proof for the persisted NVDA market snapshot."""
+
+import importlib
+import importlib.util
+import json
+import signal
+from collections.abc import Iterator
+from dataclasses import dataclass
+from pathlib import Path
+from types import ModuleType
+from typing import Any
+
+import pytest
+from fastapi.testclient import TestClient
+from typer.testing import CliRunner
+
+from argusfinance.bootstrap import build_container
+from argusfinance.cli import app as cli_app
+from argusfinance.config import Settings, get_settings
+from argusfinance.mcp_server import MarketMcpTools
+
+JsonObject = dict[str, Any]
+
+
+def _load_dev_module() -> ModuleType:
+    path = Path(__file__).resolve().parents[2] / "scripts" / "dev.py"
+    spec = importlib.util.spec_from_file_location("argusfinance_dev", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+@dataclass(frozen=True)
+class VerticalSlice:
+    """Exercise each public boundary against one local persisted state."""
+
+    client: TestClient
+    cli_runner: CliRunner
+    mcp_tools: MarketMcpTools
+
+    def capture_with_api(self, ticker: str, weeks: int) -> JsonObject:
+        response = self.client.post(
+            f"/api/market/{ticker}/snapshots",
+            params={"weeks": weeks},
+        )
+        assert response.status_code == 201
+        return response.json()
+
+    def latest_with_cli(self, ticker: str) -> JsonObject:
+        result = self.cli_runner.invoke(cli_app, ["market", "latest", ticker])
+        assert result.exit_code == 0
+        return json.loads(result.stdout)
+
+    def latest_with_mcp(self, ticker: str) -> JsonObject:
+        return self.mcp_tools.get_latest_market_snapshot(ticker)
+
+
+@pytest.fixture
+def vertical_slice(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[VerticalSlice]:
+    state_dir = tmp_path / "state"
+    database_url = f"sqlite:///{tmp_path / 'workspace.sqlite'}"
+    monkeypatch.setenv("ARGUS_STATE_DIR", str(state_dir))
+    monkeypatch.setenv("ARGUS_DATABASE_URL", database_url)
+
+    settings = Settings(state_dir=state_dir, database_url=database_url)
+    container = build_container(settings)
+
+    # Import only after the temporary environment is installed: the module's
+    # development ASGI app is composed at import time.
+    get_settings.cache_clear()
+    api_module = importlib.import_module("argusfinance.api.app")
+    app = api_module.create_app(settings, container)
+    with TestClient(app) as client:
+        yield VerticalSlice(
+            client=client,
+            cli_runner=CliRunner(),
+            mcp_tools=MarketMcpTools(container.market_service),
+        )
+    get_settings.cache_clear()
+
+
+def test_nvda_snapshot_identity_across_api_cli_and_mcp(vertical_slice):
+    api_snapshot = vertical_slice.capture_with_api("NVDA", weeks=8)
+    cli_snapshot = vertical_slice.latest_with_cli("NVDA")
+    mcp_snapshot = vertical_slice.latest_with_mcp("NVDA")
+
+    assert api_snapshot["snapshot_id"] == cli_snapshot["snapshot_id"]
+    assert api_snapshot["snapshot_id"] == mcp_snapshot["snapshot_id"]
+    assert api_snapshot["underlying"]["ticker"] == "NVDA"
+
+
+def test_launcher_starts_local_children_and_terminates_surviving_sibling(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    dev = _load_dev_module()
+    repo_root = Path(__file__).resolve().parents[2]
+
+    class FakeProcess:
+        def __init__(self, name: str, returncode: int | None) -> None:
+            self.name = name
+            self.returncode = returncode
+            self.terminated = False
+            self.waited = False
+
+        def poll(self) -> int | None:
+            return self.returncode
+
+        def terminate(self) -> None:
+            self.terminated = True
+            self.returncode = -signal.SIGTERM
+
+        def wait(self) -> int:
+            self.waited = True
+            assert self.returncode is not None
+            return self.returncode
+
+        def send_signal(self, signum: int) -> None:
+            self.returncode = -signum
+
+    api = FakeProcess("api", 7)
+    dashboard = FakeProcess("dashboard", None)
+    processes = iter((api, dashboard))
+    popen_calls: list[tuple[list[str], Path]] = []
+
+    def fake_popen(command: list[str], cwd: Path) -> FakeProcess:
+        popen_calls.append((command, cwd))
+        return next(processes)
+
+    monkeypatch.setattr(dev.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(dev.signal, "signal", lambda *_args: None)
+
+    assert dev.main() == 7
+    assert popen_calls == [
+        (
+            [
+                dev.sys.executable,
+                "-m",
+                "uvicorn",
+                "argusfinance.api.app:app",
+                "--host",
+                "127.0.0.1",
+                "--port",
+                "8765",
+            ],
+            repo_root,
+        ),
+        (
+            [
+                "npm",
+                "--prefix",
+                str(repo_root / "apps" / "dashboard"),
+                "run",
+                "dev",
+                "--",
+                "--host",
+                "127.0.0.1",
+                "--port",
+                "5173",
+                "--strictPort",
+            ],
+            repo_root,
+        ),
+    ]
+    assert capsys.readouterr().out.splitlines() == [
+        "ArgusFinance API: http://127.0.0.1:8765",
+        "ArgusFinance dashboard: http://127.0.0.1:5173",
+    ]
+    assert not api.terminated
+    assert dashboard.terminated
+    assert api.waited and dashboard.waited
+
+
+def test_launcher_forwards_termination_signals_to_both_children(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dev = _load_dev_module()
+    handlers: dict[int, Any] = {}
+
+    class SignalAwareProcess:
+        def __init__(self, trigger_signal: bool) -> None:
+            self.trigger_signal = trigger_signal
+            self.returncode: int | None = None
+            self.received: list[int] = []
+
+        def poll(self) -> int | None:
+            if self.trigger_signal and self.returncode is None:
+                self.trigger_signal = False
+                handlers[signal.SIGINT](signal.SIGINT, None)
+            return self.returncode
+
+        def send_signal(self, signum: int) -> None:
+            self.received.append(signum)
+            self.returncode = -signum
+
+        def terminate(self) -> None:
+            self.returncode = -signal.SIGTERM
+
+        def wait(self) -> int:
+            assert self.returncode is not None
+            return self.returncode
+
+    api = SignalAwareProcess(trigger_signal=True)
+    dashboard = SignalAwareProcess(trigger_signal=False)
+    processes = iter((api, dashboard))
+    monkeypatch.setattr(dev.subprocess, "Popen", lambda *_args, **_kwargs: next(processes))
+    monkeypatch.setattr(dev.signal, "signal", handlers.__setitem__)
+
+    assert dev.main() == -signal.SIGINT
+    assert set(handlers) == {signal.SIGINT, signal.SIGTERM}
+    assert api.received == [signal.SIGINT]
+    assert dashboard.received == [signal.SIGINT]
