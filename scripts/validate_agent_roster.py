@@ -91,21 +91,19 @@ def _validate_skill(root: Path) -> None:
     skill = _read_text(root / "skills" / "evaluate-ticker" / "SKILL.md")
     lower = skill.lower()
     _require(skill.startswith("---\nname: evaluate-ticker\ndescription: Use when"), "invalid skill frontmatter")
-    _require("never invokes the operator or browser" in lower, "skill must prohibit browser invocation")
+    handoff_line = (
+        "6. Only when the user explicitly asks for visual handoff, return a typed "
+        "`optionstrat_handoff` packet. This skill never invokes the operator or browser."
+    )
+    pressure_line = "| Sunk work justifies early OptionStrat | No handoff until explicit user request after synthesis. |"
+    _require(handoff_line in skill.splitlines(), "skill must prohibit browser and operator invocation")
     _require(
-        not any(
-            phrase in lower
-            for phrase in (
-                "prefill optionstrat",
-                "open optionstrat",
-                "launch optionstrat",
-                "invoke browser",
-                "open browser",
-                "launch browser",
-                "use browser",
-            )
+        all(
+            line in {handoff_line, pressure_line}
+            for line in skill.splitlines()
+            if any(term in line.lower() for term in ("browser", "optionstrat", "operator"))
         ),
-        "skill permits browser or OptionStrat prefill behavior",
+        "skill has an unauthorized browser, OptionStrat, or operator reference",
     )
     _require(all(role in lower for role in ANALYTICAL_ROLES), "skill lacks an analytical role")
     fanout = lower.index("company_analyst")

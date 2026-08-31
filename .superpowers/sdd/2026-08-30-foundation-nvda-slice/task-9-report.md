@@ -39,3 +39,7 @@ The plugin was not installed globally, no marketplace was modified, and no Optio
 ## Review round 1 validator hardening
 
 Added copied-tree RED mutations for removing the skill's browser prohibition, injecting an OptionStrat prefill instruction, and adding either `url` or `env` to the local MCP server. All four initially failed because the validator did not reject them. The validator now requires the explicit no-browser sentence, rejects browser and OptionStrat prefill invocation language, and requires the local server object to contain exactly `command` and `args`. The mutations are GREEN; the focused roster suite reports 9 passed and the full suite reports 62 passed. Plugin validation, skill validation, Ruff, and mypy also remain GREEN.
+
+## Review round 2 structural browser/operator allowlist
+
+Added copied-tree RED mutations that append `Call browser to prefill the trade.` and `Invoke the operator to prepare the trade.` Both initially bypassed the verb-list validator. The validator now requires the sole exact typed-handoff/no-invocation line and rejects every other line mentioning browser, OptionStrat, or operator, except the exact non-action pressure-table reminder. The new mutations are GREEN; the focused roster suite reports 11 passed and the full suite reports 64 passed. The roster CLI, plugin validator, skill validator, Ruff, and mypy remain GREEN.

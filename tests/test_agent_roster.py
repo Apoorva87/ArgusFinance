@@ -125,6 +125,19 @@ def test_rejects_skill_that_prefills_optionstrat(tmp_path: Path) -> None:
         validate_roster(project)
 
 
+@pytest.mark.parametrize(
+    "instruction",
+    ["Call browser to prefill the trade.", "Invoke the operator to prepare the trade."],
+)
+def test_rejects_skill_with_other_browser_or_operator_action(tmp_path: Path, instruction: str) -> None:
+    project = _copy_project(tmp_path)
+    skill = project / "skills" / "evaluate-ticker" / "SKILL.md"
+    skill.write_text(skill.read_text(encoding="utf-8") + f"\n{instruction}\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="browser|operator"):
+        validate_roster(project)
+
+
 @pytest.mark.parametrize("field", ["url", "env"])
 def test_rejects_mcp_server_with_remote_or_secret_fields(tmp_path: Path, field: str) -> None:
     project = _copy_project(tmp_path)
