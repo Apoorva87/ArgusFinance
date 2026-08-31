@@ -30,6 +30,8 @@ The delivered skill directly requires all analytical lanes, stages strategy befo
 
 Feature commit: `cdba158` (`feat: add fixed agent roster and plugin shell`).
 
-## Concern / next validation
+## Skill GREEN forward validation
 
-Skill GREEN forward testing remains pending controller execution: the controller must run the required five fresh-context pressure tests and return failures, if any, for refactoring. The plugin was not installed globally, no marketplace was modified, and no OptionStrat/browser action was invoked.
+The controller completed five fresh-context repetitions of the identical pressure scenario. All five complied: snapshot first; all three evidence lanes including historical; strategy then risk dependency; failures marked rather than substituted; pending-only lessons; no early OptionStrat/browser; and no live or paper order placement, staging, or authorization. No new rationalizations or hybrid bypasses appeared, so no refactor was needed.
+
+The plugin was not installed globally, no marketplace was modified, and no OptionStrat/browser action was invoked.
