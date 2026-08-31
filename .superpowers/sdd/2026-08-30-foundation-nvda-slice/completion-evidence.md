@@ -4,14 +4,14 @@ Captures the evidence required by the "Completion evidence" section of
 `docs/superpowers/plans/2026-08-30-foundation-nvda-slice.md`, plus the design
 specification review that gates Phase 2.
 
-Verified at `5eeff9e` (`docs: record task 10 port override fix`) on
-`feat/foundation-nvda-slice`.
+Verified on `feat/foundation-nvda-slice` after the schema-ownership fix
+recorded below.
 
 ## Required evidence
 
 | Item | Result |
 | --- | --- |
-| Python test count, zero failures | `uv run pytest -q` — **76 passed** in 1.75s |
+| Python test count, zero failures | `uv run pytest -q` — **78 passed** in 1.61s, exit 0 |
 | Frontend test count, zero failures | `npm test --prefix apps/dashboard -- --run` — **8 passed**, 3 files |
 | Ruff exit status | `uv run ruff check src tests scripts migrations` — `All checks passed!`, exit 0 |
 | mypy exit status | `uv run mypy src/argusfinance` — no issues in 25 source files, exit 0 |
@@ -34,6 +34,7 @@ state directory and one SQLite database:
   through Vite to `127.0.0.1:8765`.
 
 `tests/e2e/test_nvda_vertical_slice.py` enforces this identity — 12 passed.
+Its fixture now applies migrations, so it exercises the documented setup path.
 
 Storage was verified on disk as partitioned Parquet:
 `data/market/ticker=NVDA/date=2026-08-28/snapshot=00000000-0000-0000-0000-000000000001.parquet`.
@@ -68,7 +69,7 @@ Reviewed against `docs/superpowers/specs/2026-08-30-argusfinance-design.md`
 | Phase 1 requirement | Status |
 | --- | --- |
 | Repository, local launcher, FastAPI, React, SQLite, DuckDB/Parquet | Met |
-| Typed domain skeleton and database migrations | **Partially met** — see finding below |
+| Typed domain skeleton and database migrations | Met after the fix recorded below |
 | Mock/replay providers and IBKR connection diagnostics | Met |
 | Fixed agent definitions, playbooks, plugin manifest, MCP shell | Met — six agents, six playbooks, manifest, MCP server |
 | NVDA eight-week snapshot consistent across API, CLI/MCP, UI | Met |
@@ -106,5 +107,34 @@ command documented in `README.md` fails against any database an application
 entry point touched first, and Phase 2 migrations cannot be applied to an
 existing local database.
 
-This is recorded rather than fixed here; the fix changes which component owns
-schema creation and is a design decision for the repository owner.
+### Resolution
+
+Schema ownership moved to the migrations, as §19 Phase 1 requires.
+
+- `Base.metadata.create_all(engine)` was removed from `build_container`. The
+  composition root no longer needs an `Engine` at all.
+- `tests/conftest.py` provides an `apply_migrations` fixture that runs
+  `alembic upgrade head` exactly as `make migrate` does. The CLI, API, and
+  end-to-end fixtures use it, so they now provision their databases through the
+  documented setup path instead of an implicit `create_all`.
+- `alembic.ini` gained `path_separator = os`, the documented replacement for the
+  legacy `prepend_sys_path` splitting deprecated in Alembic 1.19.
+
+Regression coverage is `tests/storage/test_migrations.py`. Its red-green cycle
+was verified both ways: the test fails with
+`table market_snapshot_metadata already exists` when `create_all` is
+reintroduced into `build_container`, and passes once it is removed.
+
+Verified on a pristine database, in the order the README documents:
+
+| Step | Result |
+| --- | --- |
+| `alembic upgrade head` | exit 0 |
+| `argusfinance market snapshot NVDA --weeks 8` | exit 0, snapshot `00000000-0000-0000-0000-000000000001` |
+| `alembic upgrade head` again (previously fatal) | exit 0 |
+| `alembic current` | `0001_snapshot_metadata (head)` |
+| `argusfinance market latest NVDA` | same snapshot ID |
+| tables | `alembic_version`, `market_snapshot_metadata` |
+
+Gates after the fix: pytest 78 passed exit 0; Ruff exit 0; mypy 25 files exit 0;
+Vitest 8 passed exit 0; Vite build exit 0. Test output is warning-free.

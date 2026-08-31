@@ -6,7 +6,7 @@ import json
 import shutil
 import signal
 import subprocess
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
@@ -85,11 +85,16 @@ class VerticalSlice:
 
 
 @pytest.fixture
-def vertical_slice(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[VerticalSlice]:
+def vertical_slice(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    apply_migrations: Callable[[str], None],
+) -> Iterator[VerticalSlice]:
     state_dir = tmp_path / "state"
     database_url = f"sqlite:///{tmp_path / 'workspace.sqlite'}"
     monkeypatch.setenv("ARGUS_STATE_DIR", str(state_dir))
     monkeypatch.setenv("ARGUS_DATABASE_URL", database_url)
+    apply_migrations(database_url)
 
     settings = Settings(state_dir=state_dir, database_url=database_url)
     container = build_container(settings)

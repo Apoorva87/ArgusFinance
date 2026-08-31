@@ -15,6 +15,10 @@ npm ci --prefix apps/dashboard
 uv run alembic upgrade head
 ```
 
+The migration step is required. Alembic owns the operational schema; no
+application entry point creates tables on startup, so a database that has not
+been upgraded reports a missing `market_snapshot_metadata` table.
+
 Runtime paths and the API port can be overridden with the `ARGUS_` settings in
 `.env.example`. The API host is intentionally local-only.
 

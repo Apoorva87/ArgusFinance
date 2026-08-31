@@ -7,13 +7,15 @@ from typer.testing import CliRunner
 from argusfinance.cli import app
 
 
-def _configure_local_state(monkeypatch, tmp_path) -> None:
+def _configure_local_state(monkeypatch, tmp_path, apply_migrations) -> None:
+    database_url = f"sqlite:///{tmp_path / 'cli.sqlite'}"
     monkeypatch.setenv("ARGUS_STATE_DIR", str(tmp_path / "state"))
-    monkeypatch.setenv("ARGUS_DATABASE_URL", f"sqlite:///{tmp_path / 'cli.sqlite'}")
+    monkeypatch.setenv("ARGUS_DATABASE_URL", database_url)
+    apply_migrations(database_url)
 
 
-def test_market_snapshot_prints_pretty_json(monkeypatch, tmp_path):
-    _configure_local_state(monkeypatch, tmp_path)
+def test_market_snapshot_prints_pretty_json(monkeypatch, tmp_path, apply_migrations):
+    _configure_local_state(monkeypatch, tmp_path, apply_migrations)
 
     result = CliRunner().invoke(app, ["market", "snapshot", "NVDA", "--weeks", "8"])
 
@@ -24,8 +26,8 @@ def test_market_snapshot_prints_pretty_json(monkeypatch, tmp_path):
     assert snapshot["underlying"]["ticker"] == "NVDA"
 
 
-def test_market_latest_uses_the_persisted_local_snapshot(monkeypatch, tmp_path):
-    _configure_local_state(monkeypatch, tmp_path)
+def test_market_latest_uses_the_persisted_local_snapshot(monkeypatch, tmp_path, apply_migrations):
+    _configure_local_state(monkeypatch, tmp_path, apply_migrations)
     runner = CliRunner()
 
     captured = runner.invoke(app, ["market", "snapshot", "NVDA", "--weeks", "8"])
@@ -36,8 +38,8 @@ def test_market_latest_uses_the_persisted_local_snapshot(monkeypatch, tmp_path):
     assert json.loads(latest.stdout)["snapshot_id"] == json.loads(captured.stdout)["snapshot_id"]
 
 
-def test_market_snapshot_rejects_unsupported_ticker_concisely(monkeypatch, tmp_path):
-    _configure_local_state(monkeypatch, tmp_path)
+def test_market_snapshot_rejects_unsupported_ticker_concisely(monkeypatch, tmp_path, apply_migrations):
+    _configure_local_state(monkeypatch, tmp_path, apply_migrations)
 
     result = CliRunner().invoke(app, ["market", "snapshot", "AAPL"])
 
@@ -46,8 +48,8 @@ def test_market_snapshot_rejects_unsupported_ticker_concisely(monkeypatch, tmp_p
     assert "Traceback" not in result.stderr
 
 
-def test_market_latest_reports_missing_snapshot_concisely(monkeypatch, tmp_path):
-    _configure_local_state(monkeypatch, tmp_path)
+def test_market_latest_reports_missing_snapshot_concisely(monkeypatch, tmp_path, apply_migrations):
+    _configure_local_state(monkeypatch, tmp_path, apply_migrations)
 
     result = CliRunner().invoke(app, ["market", "latest", "NVDA"])
 

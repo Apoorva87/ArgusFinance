@@ -6,7 +6,6 @@ from argusfinance.adapters.mock_market import MockMarketDataProvider
 from argusfinance.config import Settings
 from argusfinance.services.market import MarketService
 from argusfinance.storage.database import create_session_factory
-from argusfinance.storage.models import Base
 from argusfinance.storage.repositories import SnapshotMetadataRepository
 from argusfinance.storage.snapshots import SnapshotStore
 
@@ -20,8 +19,7 @@ class Container:
 
 def build_container(settings: Settings) -> Container:
     """Build the local storage and deterministic market workflow once."""
-    session_factory, engine = create_session_factory(settings.database_url)
-    Base.metadata.create_all(engine)
+    session_factory, _engine = create_session_factory(settings.database_url)
     return Container(
         market_service=MarketService(
             MockMarketDataProvider(),

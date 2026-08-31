@@ -1,6 +1,6 @@
 """HTTP contract tests for the shared market snapshot workflow."""
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import pytest
@@ -11,10 +11,12 @@ from argusfinance.config import Settings
 
 
 @pytest.fixture
-def client(tmp_path: Path) -> Iterator[TestClient]:
+def client(tmp_path: Path, apply_migrations: Callable[[str], None]) -> Iterator[TestClient]:
+    database_url = f"sqlite:///{tmp_path / 'metadata.sqlite'}"
+    apply_migrations(database_url)
     settings = Settings(
         state_dir=tmp_path / "snapshots",
-        database_url=f"sqlite:///{tmp_path / 'metadata.sqlite'}",
+        database_url=database_url,
     )
     with TestClient(create_app(settings)) as test_client:
         yield test_client
