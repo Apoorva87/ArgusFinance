@@ -1,0 +1,16 @@
+[agents]
+enabled = true
+max_concurrent_threads_per_session = 5
+
+[agents.company_analyst]
+config_file = ".codex/agents/company-analyst.toml"
+[agents.market_options_analyst]
+config_file = ".codex/agents/market-options-analyst.toml"
+[agents.historical_evidence_analyst]
+config_file = ".codex/agents/historical-evidence-analyst.toml"
+[agents.strategy_analyst]
+config_file = ".codex/agents/strategy-analyst.toml"
+[agents.risk_critic]
+config_file = ".codex/agents/risk-critic.toml"
+[agents.optionstrat_operator]
+config_file = ".codex/agents/optionstrat-operator.toml"

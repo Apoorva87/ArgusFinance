@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "argusfinance": {
+      "command": "uv",
+      "args": ["run", "argusfinance-mcp"]
+    }
+  }
+}

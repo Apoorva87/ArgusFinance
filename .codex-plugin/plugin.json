@@ -1,0 +1,17 @@
+{
+  "name": "argusfinance",
+  "version": "0.1.0",
+  "description": "Local, evidence-grounded options research with fixed analytical roles.",
+  "author": { "name": "Apoorva Karnik" },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "ArgusFinance",
+    "shortDescription": "Evidence-grounded local options research.",
+    "longDescription": "ArgusFinance coordinates fixed research roles without order execution.",
+    "developerName": "Apoorva Karnik",
+    "category": "Productivity",
+    "capabilities": [],
+    "defaultPrompt": "Evaluate ticker options research with ArgusFinance."
+  },
+  "mcpServers": "./.mcp.json"
+}
