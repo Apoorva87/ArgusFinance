@@ -12,21 +12,23 @@ Implemented the local NVDA market observatory in `apps/dashboard/` at feature co
 
 ## Files
 
-- Vite/React/TypeScript metadata, scripts, and pinned `package-lock.json` in `apps/dashboard/`.
+- Vite/React/TypeScript metadata, exact-versioned scripts/dependencies, and pinned `package-lock.json` in `apps/dashboard/`.
 - Typed relative API client and `MarketApiError` in `src/api/market.ts`.
 - Snapshot view, expiration timeline, Plotly liquidity chart, accessible aggregate table, app load/error states, and responsive styles.
-- Canonical deterministic NVDA test fixture and component test in `src/test/` and `src/features/market/`.
+- Canonical deterministic NVDA test fixture plus component, API-client, and App-state tests in `src/`.
 
 ## TDD evidence
 
 - RED: `npm test -- --run src/features/market/MarketSnapshotView.test.tsx` failed because `./MarketSnapshotView` did not exist. Vite reported: `Failed to resolve import "./MarketSnapshotView"`.
 - GREEN focused: the same command passed with 3/3 tests after implementation.
 - GREEN full: `npm test -- --run` passed: 1 file, 3 tests.
+- Review regression tests: `src/api/market.test.ts` covers normalized relative request URLs and typed API errors; `src/App.test.tsx` covers loading, 404 capture guidance, and generic failure guidance. The API behavior already existed, so these tests were green on their first run; the App test first failed before execution because jsdom resolved Plotly's optional peer package, then passed after mocking only the renderer internals (the same test boundary as the existing chart test).
 
 ## Verification
 
 - `npm run build` exited 0. Vite emitted the production bundle successfully.
 - `git diff --check cb0c04d..HEAD` exited 0 after the report commit.
+- Review verification: `npm ci` exited 0 with a clean reproducible install; focused and full Vitest runs passed 3 files / 8 tests; the production build exited 0.
 
 ## Accessibility and responsive self-critique
 
@@ -36,5 +38,6 @@ Implemented the local NVDA market observatory in `apps/dashboard/` at feature co
 
 ## Concerns/deviations
 
-- `npm install` completed successfully with an `EBADENGINE` warning: jsdom 30 declares Node `^22.22.2 || ^24.15.0 || >=26.0.0`; the local environment was Node 25.8.1. Tests passed under that environment.
+- The prior Node engine warning is resolved: all direct dependencies are exact-versioned and jsdom is pinned to `29.1.1`, whose declared Node range includes the local Node 25.8.1. Both `npm install` and `npm ci` completed without an `EBADENGINE` warning.
 - Vite emitted its standard large-chunk advisory because bundled Plotly is approximately 4.3MB uncompressed / 1.3MB gzip. No data or UI behavior is affected; code splitting is deferred for this local first slice.
+- Visual browser QA was unavailable to the controller because no browser instance was available. Code, build, responsive CSS, keyboard focus, reduced-motion, and accessible text-alternative review were completed instead.
