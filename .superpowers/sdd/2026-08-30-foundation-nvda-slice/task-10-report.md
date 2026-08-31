@@ -149,3 +149,46 @@ The existing Vite advisory remains: the minified JavaScript chunk is larger
 than 500 kB. The installed ib_async baseline synchronization caveat above also
 remains; `StartupFetchNONE` does not suppress its unconditional positions
 request.
+
+## Review round 2
+
+The API port override is now resolved once by Python settings and propagated to
+the dashboard child through the narrowly named `ARGUS_DASHBOARD_API_PORT`
+environment variable. Vite reads only the `ARGUS_DASHBOARD_` prefix and uses a
+validated port, falling back to `8765` when the value is missing or unsafe.
+
+### TDD evidence
+
+- Vite-config RED: with `ARGUS_DASHBOARD_API_PORT=9123`, the actual config
+  loaded through Vite still returned target `http://127.0.0.1:8765`, not
+  `http://127.0.0.1:9123`.
+- Vite-config GREEN: six focused config cases passed for default `8765`,
+  override `9123`, and unsafe values `""`, `0`, `65536`, and `9123/path` falling
+  back to `8765`.
+- Launcher RED: with `ARGUS_API_PORT=9123`, the Uvicorn argument vector already
+  used `9123`, but the dashboard `Popen` environment was `None`.
+- Launcher GREEN: the dashboard child received
+  `ARGUS_DASHBOARD_API_PORT=9123`; the assertion inspects only that variable.
+  The existing default launcher test also confirms narrow propagation of
+  `8765` while preserving its exact commands and printed URLs.
+- Build-integration RED: direct `process.env` access failed `tsc` with TS2591
+  because this dashboard config intentionally does not declare Node globals.
+  The final config uses Vite's `loadEnv` with only the `ARGUS_DASHBOARD_`
+  prefix; the actual-config tests and production build then passed.
+
+Implementation commit: `b9a01fb` (`fix: align dashboard proxy with API port`).
+
+### Final verification
+
+- `uv run pytest tests/e2e/test_nvda_vertical_slice.py -v` — 12 passed in
+  1.35s.
+- `uv run pytest -v` — 76 passed in 1.66s.
+- `uv run ruff check src tests scripts` — `All checks passed!`.
+- `uv run mypy src/argusfinance` — no issues in 25 source files.
+- `npm test --prefix apps/dashboard -- --run` — 3 files and 8 tests passed in
+  512ms.
+- `npm run build --prefix apps/dashboard` — exit 0; 23 modules transformed and
+  production assets emitted in 1.03s with unchanged asset names and sizes.
+- `git diff --check de49d5a..HEAD` at `b9a01fb` — exit 0.
+
+No new concern was introduced. The existing Vite large-chunk advisory remains.
