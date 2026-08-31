@@ -77,3 +77,25 @@ position, market-data, order, or other client method were accessed.
 
 - Feature commit: `5f0495e043bf43c869c5f40223c625b5e9105131` (`feat: add CLI and IBKR diagnostics`).
 - No live IBKR process was contacted. No remaining concerns.
+
+## Review round 1: enforced read-only configuration
+
+The review found that a caller could construct `IbkrConnectionSettings(readonly=False)`,
+which would have reached the diagnostic handshake. A regression test was written first:
+
+- `uv run pytest tests/adapters/test_ibkr_diagnostic.py::test_connection_settings_reject_non_readonly_configuration -v`
+  — RED: failed because no `ValueError` was raised.
+
+The immutable settings now reject that configuration with `IBKR diagnostics must be
+read-only`, and the actual `connect()` call independently hard-codes `readonly=True`.
+Thus an invalid configuration cannot be created and no accepted settings value can
+open a read-write diagnostic connection.
+
+Fresh review verification:
+
+- Focused CLI/IBKR tests — 10 passed.
+- Full suite — 48 passed.
+- Ruff, strict mypy (24 source files), CLI help, and range diff check — passed.
+
+Review fix commit: `28985151043b4cd00359d0294bec16bf193999a6`
+(`fix: enforce read-only IBKR diagnostics`).
