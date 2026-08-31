@@ -83,6 +83,7 @@ def _validate_plugin(root: Path) -> None:
     mcp = json.loads(_read_text(root / ".mcp.json"))
     _require(set(mcp.get("mcpServers", {})) == {"argusfinance"}, "invalid local MCP server set")
     server = mcp["mcpServers"]["argusfinance"]
+    _require(set(server) == {"command", "args"}, "invalid local MCP server shape")
     _require(server.get("command") == "uv" and server.get("args") == ["run", "argusfinance-mcp"], "wrong local MCP command")
 
 
@@ -90,7 +91,22 @@ def _validate_skill(root: Path) -> None:
     skill = _read_text(root / "skills" / "evaluate-ticker" / "SKILL.md")
     lower = skill.lower()
     _require(skill.startswith("---\nname: evaluate-ticker\ndescription: Use when"), "invalid skill frontmatter")
-    _require("optionstrat_operator" not in lower or "never invokes the operator" in lower, "skill delegates to OptionStrat operator")
+    _require("never invokes the operator or browser" in lower, "skill must prohibit browser invocation")
+    _require(
+        not any(
+            phrase in lower
+            for phrase in (
+                "prefill optionstrat",
+                "open optionstrat",
+                "launch optionstrat",
+                "invoke browser",
+                "open browser",
+                "launch browser",
+                "use browser",
+            )
+        ),
+        "skill permits browser or OptionStrat prefill behavior",
+    )
     _require(all(role in lower for role in ANALYTICAL_ROLES), "skill lacks an analytical role")
     fanout = lower.index("company_analyst")
     strategy = lower.index("strategy_analyst")

@@ -35,3 +35,7 @@ Feature commit: `cdba158` (`feat: add fixed agent roster and plugin shell`).
 The controller completed five fresh-context repetitions of the identical pressure scenario. All five complied: snapshot first; all three evidence lanes including historical; strategy then risk dependency; failures marked rather than substituted; pending-only lessons; no early OptionStrat/browser; and no live or paper order placement, staging, or authorization. No new rationalizations or hybrid bypasses appeared, so no refactor was needed.
 
 The plugin was not installed globally, no marketplace was modified, and no OptionStrat/browser action was invoked.
+
+## Review round 1 validator hardening
+
+Added copied-tree RED mutations for removing the skill's browser prohibition, injecting an OptionStrat prefill instruction, and adding either `url` or `env` to the local MCP server. All four initially failed because the validator did not reject them. The validator now requires the explicit no-browser sentence, rejects browser and OptionStrat prefill invocation language, and requires the local server object to contain exactly `command` and `args`. The mutations are GREEN; the focused roster suite reports 9 passed and the full suite reports 62 passed. Plugin validation, skill validation, Ruff, and mypy also remain GREEN.

@@ -96,3 +96,42 @@ def test_rejects_analytical_agent_granted_browser_authority(tmp_path: Path) -> N
 
     with pytest.raises(ValueError, match="forbidden authority"):
         validate_roster(project)
+
+
+def test_rejects_skill_that_allows_browser_invocation(tmp_path: Path) -> None:
+    project = _copy_project(tmp_path)
+    skill = project / "skills" / "evaluate-ticker" / "SKILL.md"
+    skill.write_text(
+        skill.read_text(encoding="utf-8").replace(
+            "the operator or browser",
+            "the operator",
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="browser"):
+        validate_roster(project)
+
+
+def test_rejects_skill_that_prefills_optionstrat(tmp_path: Path) -> None:
+    project = _copy_project(tmp_path)
+    skill = project / "skills" / "evaluate-ticker" / "SKILL.md"
+    skill.write_text(
+        skill.read_text(encoding="utf-8") + "\nPrefill OptionStrat before returning the synthesis.\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="browser"):
+        validate_roster(project)
+
+
+@pytest.mark.parametrize("field", ["url", "env"])
+def test_rejects_mcp_server_with_remote_or_secret_fields(tmp_path: Path, field: str) -> None:
+    project = _copy_project(tmp_path)
+    mcp = project / ".mcp.json"
+    data = __import__("json").loads(mcp.read_text(encoding="utf-8"))
+    data["mcpServers"]["argusfinance"][field] = "https://example.invalid" if field == "url" else {"TOKEN": "secret"}
+    mcp.write_text(__import__("json").dumps(data), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="MCP"):
+        validate_roster(project)
