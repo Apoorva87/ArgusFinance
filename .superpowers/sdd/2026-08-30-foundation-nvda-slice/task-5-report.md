@@ -37,6 +37,7 @@ After router integration, capture/latest JSON identity, 201/200 status codes, ex
 - `uv run ruff check src tests migrations` — passed.
 - `uv run mypy src/argusfinance` — passed, 22 source files checked.
 - `git diff --check` — passed.
+- Review-round cleanup: focused/full tests, Ruff, and strict mypy passed again; `git diff --check ca98331..HEAD` passed after removal of two package-marker EOF blank lines.
 
 The first exact full-suite run exposed the duplicate bare test-module name collection failure. The authorized `addopts = ["--import-mode=importlib"]` pytest configuration change fixed that infrastructure issue; the final exact full-suite command passed.
 
@@ -47,9 +48,11 @@ The first exact full-suite run exposed the duplicate bare test-module name colle
 - The service returns the stored snapshot after capture, ensuring capture/latest serialize identical normalized decimal values.
 - Container construction happens once per app construction and request injection reads `app.state.container.market_service` without rebuilding dependencies.
 - No prior storage/domain code or later-task areas were modified.
+- Review round 1 removed only the two flagged terminal blank lines; no functional behavior changed.
 
 ## Commits and concerns
 
 - Feature commit: `6d163ae7967fcdf6f8f17210f62fe06f60e3fb56` (`feat: expose shared market snapshot service`).
 - Report commit follows this file.
+- Cleanup/report commit follows this update.
 - No remaining concerns.
