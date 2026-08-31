@@ -1,0 +1,29 @@
+{
+  "name": "argusfinance-dashboard",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "latest",
+    "plotly.js-dist-min": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "react-plotly.js": "latest",
+    "vite": "latest"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "latest",
+    "@testing-library/react": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "@types/react-plotly.js": "latest",
+    "jsdom": "latest",
+    "typescript": "latest",
+    "vitest": "latest"
+  }
+}
