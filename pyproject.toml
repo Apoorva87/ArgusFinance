@@ -23,6 +23,7 @@ dependencies = [
 
 [project.scripts]
 argusfinance = "argusfinance.cli:app"
+argusfinance-mcp = "argusfinance.mcp_server:main"
 
 [dependency-groups]
 dev = [
