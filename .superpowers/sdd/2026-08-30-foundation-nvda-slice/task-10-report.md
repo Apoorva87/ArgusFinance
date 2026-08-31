@@ -143,6 +143,7 @@ Result: 11 passed in 0.70s.
   531ms.
 - `npm run build --prefix apps/dashboard` — exit 0; 23 modules transformed and
   production assets emitted in 1.00s.
+- `git diff --check b0f1366..HEAD` at review-fix commit `34aa12a` — exit 0.
 
 The existing Vite advisory remains: the minified JavaScript chunk is larger
 than 500 kB. The installed ib_async baseline synchronization caveat above also
