@@ -12,6 +12,7 @@ dependencies = [
     "alembic",
     "duckdb",
     "fastapi",
+    "ib_async>=2.1,<3",
     "mcp",
     "pyarrow",
     "pydantic-settings",
@@ -19,6 +20,9 @@ dependencies = [
     "typer",
     "uvicorn",
 ]
+
+[project.scripts]
+argusfinance = "argusfinance.cli:app"
 
 [dependency-groups]
 dev = [
