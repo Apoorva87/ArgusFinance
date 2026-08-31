@@ -3,6 +3,7 @@
 import importlib
 import importlib.util
 import json
+import shutil
 import signal
 import subprocess
 from collections.abc import Iterator
@@ -30,6 +31,32 @@ def _load_dev_module() -> ModuleType:
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def _resolved_vite_api_proxy(api_port: str | None = None) -> JsonObject:
+    dashboard_root = Path(__file__).resolve().parents[2] / "apps" / "dashboard"
+    node = shutil.which("node")
+    assert node is not None
+    environment = {} if api_port is None else {"ARGUS_DASHBOARD_API_PORT": api_port}
+    result = subprocess.run(
+        [
+            node,
+            "--input-type=module",
+            "-e",
+            (
+                "const {loadConfigFromFile} = await import('vite');"
+                "const loaded = await loadConfigFromFile("
+                "{command:'serve',mode:'development'},'./vite.config.ts');"
+                "console.log(JSON.stringify(loaded.config.server?.proxy?.['/api'] ?? null));"
+            ),
+        ],
+        cwd=dashboard_root,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return json.loads(result.stdout)
 
 
 @dataclass(frozen=True)
@@ -92,26 +119,16 @@ def test_nvda_snapshot_identity_across_api_cli_and_mcp(vertical_slice):
 
 
 def test_dashboard_dev_server_proxies_api_to_exact_local_backend() -> None:
-    dashboard_root = Path(__file__).resolve().parents[2] / "apps" / "dashboard"
-    result = subprocess.run(
-        [
-            "node",
-            "--input-type=module",
-            "-e",
-            (
-                "const {loadConfigFromFile} = await import('vite');"
-                "const loaded = await loadConfigFromFile("
-                "{command:'serve',mode:'development'},'./vite.config.ts');"
-                "console.log(JSON.stringify(loaded.config.server?.proxy?.['/api'] ?? null));"
-            ),
-        ],
-        cwd=dashboard_root,
-        capture_output=True,
-        text=True,
-        check=True,
-    )
+    assert _resolved_vite_api_proxy() == {"target": "http://127.0.0.1:8765"}
 
-    assert json.loads(result.stdout) == {"target": "http://127.0.0.1:8765"}
+
+def test_dashboard_dev_server_proxies_api_to_resolved_non_default_port() -> None:
+    assert _resolved_vite_api_proxy("9123") == {"target": "http://127.0.0.1:9123"}
+
+
+@pytest.mark.parametrize("unsafe_port", ["", "0", "65536", "9123/path"])
+def test_dashboard_dev_server_rejects_unsafe_proxy_port(unsafe_port: str) -> None:
+    assert _resolved_vite_api_proxy(unsafe_port) == {"target": "http://127.0.0.1:8765"}
 
 
 def test_launcher_starts_local_children_and_terminates_surviving_sibling(
@@ -148,9 +165,16 @@ def test_launcher_starts_local_children_and_terminates_surviving_sibling(
     dashboard = FakeProcess("dashboard", None)
     processes = iter((api, dashboard))
     popen_calls: list[tuple[list[str], Path]] = []
+    dashboard_api_ports: list[str] = []
 
-    def fake_popen(command: list[str], cwd: Path) -> FakeProcess:
+    def fake_popen(
+        command: list[str],
+        cwd: Path,
+        env: dict[str, str] | None = None,
+    ) -> FakeProcess:
         popen_calls.append((command, cwd))
+        if env is not None:
+            dashboard_api_ports.append(env["ARGUS_DASHBOARD_API_PORT"])
         return next(processes)
 
     monkeypatch.setattr(dev.subprocess, "Popen", fake_popen)
@@ -195,6 +219,7 @@ def test_launcher_starts_local_children_and_terminates_surviving_sibling(
     assert not api.terminated
     assert dashboard.terminated
     assert api.waited and dashboard.waited
+    assert dashboard_api_ports == ["8765"]
 
 
 def test_launcher_forwards_termination_signals_to_both_children(
@@ -340,3 +365,50 @@ def test_launcher_kills_and_reaps_first_child_when_dashboard_startup_fails(
     assert api.terminated and api.killed
     assert len(api.wait_timeouts) == 2
     assert all(timeout is not None for timeout in api.wait_timeouts)
+
+
+def test_launcher_passes_resolved_api_port_to_dashboard_child(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("ARGUS_API_PORT", "9123")
+    dev = _load_dev_module()
+
+    class ConfiguredProcess:
+        def __init__(self, returncode: int | None) -> None:
+            self.returncode = returncode
+
+        def poll(self) -> int | None:
+            return self.returncode
+
+        def send_signal(self, signum: int) -> None:
+            self.returncode = -signum
+
+        def terminate(self) -> None:
+            self.returncode = -signal.SIGTERM
+
+        def wait(self, timeout: float | None = None) -> int:
+            assert timeout is not None
+            assert self.returncode is not None
+            return self.returncode
+
+    processes = iter((ConfiguredProcess(0), ConfiguredProcess(None)))
+    popen_calls: list[tuple[list[str], dict[str, str] | None]] = []
+
+    def recording_popen(
+        command: list[str],
+        *,
+        cwd: Path,
+        env: dict[str, str] | None = None,
+    ) -> ConfiguredProcess:
+        assert cwd == Path(__file__).resolve().parents[2]
+        popen_calls.append((command, env))
+        return next(processes)
+
+    monkeypatch.setattr(dev.signal, "signal", lambda *_args: None)
+    monkeypatch.setattr(dev.subprocess, "Popen", recording_popen)
+
+    assert dev.main() == 0
+    assert popen_calls[0][0][-1] == "9123"
+    dashboard_environment = popen_calls[1][1]
+    assert dashboard_environment is not None
+    assert dashboard_environment["ARGUS_DASHBOARD_API_PORT"] == "9123"

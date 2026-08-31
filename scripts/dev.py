@@ -1,5 +1,6 @@
 """Run the local API and dashboard together in the foreground."""
 
+import os
 import signal
 import subprocess
 import sys
@@ -13,6 +14,7 @@ from argusfinance.config import Settings
 _API_HOST = "127.0.0.1"
 _DASHBOARD_HOST = "127.0.0.1"
 _DASHBOARD_PORT = 5173
+_DASHBOARD_API_PORT_ENV = "ARGUS_DASHBOARD_API_PORT"
 _TERMINATE_TIMEOUT_SECONDS = 5.0
 _KILL_TIMEOUT_SECONDS = 5.0
 
@@ -43,6 +45,8 @@ def main() -> int:
     """Start both local services and stop their sibling when either exits."""
     repo_root = Path(__file__).resolve().parents[1]
     api_port = Settings().api_port
+    dashboard_environment = os.environ.copy()
+    dashboard_environment[_DASHBOARD_API_PORT_ENV] = str(api_port)
     processes: list[subprocess.Popen[bytes]] = []
     received_signal: int | None = None
 
@@ -89,6 +93,7 @@ def main() -> int:
                     "--strictPort",
                 ],
                 cwd=repo_root,
+                env=dashboard_environment,
             )
         )
         if received_signal is not None:
