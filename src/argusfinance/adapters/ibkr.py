@@ -34,6 +34,10 @@ class IbkrConnectionSettings:
     readonly: bool = True
     timeout: float = 4
 
+    def __post_init__(self) -> None:
+        if not self.readonly:
+            raise ValueError("IBKR diagnostics must be read-only")
+
 
 def _default_client_factory() -> IbkrClient:
     """Instantiate the official client only when a diagnostic is requested."""
@@ -63,7 +67,7 @@ class IbkrMarketDataProvider:
                 port=self._settings.port,
                 clientId=self._settings.client_id,
                 timeout=self._settings.timeout,
-                readonly=self._settings.readonly,
+                readonly=True,
             )
             if client.isConnected():
                 result["connected"] = True

@@ -48,6 +48,11 @@ def test_diagnostic_uses_one_readonly_connection_and_always_disconnects():
     assert client.disconnect_calls == 1
 
 
+def test_connection_settings_reject_non_readonly_configuration():
+    with pytest.raises(ValueError, match="^IBKR diagnostics must be read-only$"):
+        IbkrConnectionSettings(readonly=False)
+
+
 def test_diagnostic_reports_a_failed_handshake_and_disconnects():
     client = FakeIbClient(connect_result=False)
     provider = IbkrMarketDataProvider(client_factory=lambda: client)
