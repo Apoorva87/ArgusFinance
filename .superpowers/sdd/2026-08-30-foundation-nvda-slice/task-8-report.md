@@ -26,7 +26,7 @@ Implemented the local NVDA market observatory in `apps/dashboard/` at feature co
 ## Verification
 
 - `npm run build` exited 0. Vite emitted the production bundle successfully.
-- `git diff --check cb0c04d..HEAD` is recorded below after the report commit.
+- `git diff --check cb0c04d..HEAD` exited 0 after the report commit.
 
 ## Accessibility and responsive self-critique
 
