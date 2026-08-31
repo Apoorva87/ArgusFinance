@@ -2,9 +2,12 @@
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from argusfinance.domain.market import MarketSnapshot
+
+if TYPE_CHECKING:
+    from ib_async import StartupFetch
 
 
 class IbkrClient(Protocol):
@@ -17,6 +20,9 @@ class IbkrClient(Protocol):
         clientId: int = 1,
         timeout: float = 4,
         readonly: bool = False,
+        account: str = "",
+        raiseSyncErrors: bool = False,
+        fetchFields: "StartupFetch" = ...,
     ) -> bool: ...
 
     def isConnected(self) -> bool: ...
@@ -47,7 +53,7 @@ def _default_client_factory() -> IbkrClient:
 
 
 class IbkrMarketDataProvider:
-    """Expose only a read-only connectivity check for the foundation slice."""
+    """Expose only a startup-minimized, read-only diagnostic for this slice."""
 
     def __init__(
         self,
@@ -58,7 +64,9 @@ class IbkrMarketDataProvider:
         self._client_factory = client_factory
 
     def diagnostic(self) -> dict[str, str | bool]:
-        """Perform a connection handshake without fetching or changing IBKR data."""
+        """Handshake with optional startup fetch groups disabled and no app data requests."""
+        from ib_async import StartupFetchNONE
+
         client = self._client_factory()
         result: dict[str, str | bool] = {"provider": "ibkr", "connected": False, "mode": "read-only"}
         try:
@@ -68,6 +76,7 @@ class IbkrMarketDataProvider:
                 clientId=self._settings.client_id,
                 timeout=self._settings.timeout,
                 readonly=True,
+                fetchFields=StartupFetchNONE,
             )
             if client.isConnected():
                 result["connected"] = True

@@ -56,20 +56,23 @@ make quality
 ## Read-only IBKR diagnostic
 
 With a local TWS or IB Gateway paper endpoint available on `127.0.0.1:7497`,
-run the connectivity-only diagnostic:
+run the startup-minimized read-only diagnostic handshake:
 
 ```bash
 uv run argusfinance provider diagnostic ibkr
 ```
 
-The connection is forced to read-only mode. It checks connectivity only: it
-does not retrieve IBKR market snapshots, account data, or orders.
+The connection is forced to read-only mode and passes `StartupFetchNONE` to
+disable ib_async's optional startup account, order, and execution fetch groups.
+ib_async still performs baseline connection synchronization, including
+positions. ArgusFinance does not request a market snapshot or take any order
+action.
 
 ## Current limitations
 
 - Foundation market data is the deterministic NVDA fixture; other tickers are
   rejected.
-- IBKR is connectivity-diagnostic only. IBKR capture is not implemented.
+- IBKR is diagnostic-handshake only. IBKR capture is not implemented.
 - The dashboard and API run locally; there is no hosted ArgusFinance service.
 - Paper and live order staging and placement are not implemented or permitted.
 - Any future OptionStrat handoff requires explicit user takeover. ArgusFinance

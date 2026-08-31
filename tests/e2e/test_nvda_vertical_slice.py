@@ -4,6 +4,7 @@ import importlib
 import importlib.util
 import json
 import signal
+import subprocess
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -90,6 +91,29 @@ def test_nvda_snapshot_identity_across_api_cli_and_mcp(vertical_slice):
     assert api_snapshot["underlying"]["ticker"] == "NVDA"
 
 
+def test_dashboard_dev_server_proxies_api_to_exact_local_backend() -> None:
+    dashboard_root = Path(__file__).resolve().parents[2] / "apps" / "dashboard"
+    result = subprocess.run(
+        [
+            "node",
+            "--input-type=module",
+            "-e",
+            (
+                "const {loadConfigFromFile} = await import('vite');"
+                "const loaded = await loadConfigFromFile("
+                "{command:'serve',mode:'development'},'./vite.config.ts');"
+                "console.log(JSON.stringify(loaded.config.server?.proxy?.['/api'] ?? null));"
+            ),
+        ],
+        cwd=dashboard_root,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    assert json.loads(result.stdout) == {"target": "http://127.0.0.1:8765"}
+
+
 def test_launcher_starts_local_children_and_terminates_surviving_sibling(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -111,8 +135,9 @@ def test_launcher_starts_local_children_and_terminates_surviving_sibling(
             self.terminated = True
             self.returncode = -signal.SIGTERM
 
-        def wait(self) -> int:
+        def wait(self, timeout: float | None = None) -> int:
             self.waited = True
+            assert timeout is not None
             assert self.returncode is not None
             return self.returncode
 
@@ -197,7 +222,8 @@ def test_launcher_forwards_termination_signals_to_both_children(
         def terminate(self) -> None:
             self.returncode = -signal.SIGTERM
 
-        def wait(self) -> int:
+        def wait(self, timeout: float | None = None) -> int:
+            assert timeout is not None
             assert self.returncode is not None
             return self.returncode
 
@@ -207,7 +233,110 @@ def test_launcher_forwards_termination_signals_to_both_children(
     monkeypatch.setattr(dev.subprocess, "Popen", lambda *_args, **_kwargs: next(processes))
     monkeypatch.setattr(dev.signal, "signal", handlers.__setitem__)
 
-    assert dev.main() == -signal.SIGINT
+    assert dev.main() == 128 + signal.SIGINT
     assert set(handlers) == {signal.SIGINT, signal.SIGTERM}
     assert api.received == [signal.SIGINT]
     assert dashboard.received == [signal.SIGINT]
+
+
+def test_launcher_installs_handlers_before_startup_and_stops_after_startup_signal(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    dev = _load_dev_module()
+    handlers: dict[int, Any] = {}
+
+    class StartupProcess:
+        def __init__(self) -> None:
+            self.returncode: int | None = None
+            self.terminated = False
+            self.waited = False
+
+        def poll(self) -> int | None:
+            return self.returncode
+
+        def send_signal(self, signum: int) -> None:
+            self.returncode = -signum
+
+        def terminate(self) -> None:
+            self.terminated = True
+            self.returncode = -signal.SIGTERM
+
+        def wait(self, timeout: float | None = None) -> int:
+            self.waited = True
+            assert timeout is not None
+            assert self.returncode is not None
+            return self.returncode
+
+    api = StartupProcess()
+    popen_calls = 0
+
+    def interrupting_popen(*_args: object, **_kwargs: object) -> StartupProcess:
+        nonlocal popen_calls
+        popen_calls += 1
+        assert set(handlers) == {signal.SIGINT, signal.SIGTERM}
+        assert popen_calls == 1, "dashboard must not start after startup interruption"
+        handlers[signal.SIGTERM](signal.SIGTERM, None)
+        return api
+
+    monkeypatch.setattr(dev.signal, "signal", handlers.__setitem__)
+    monkeypatch.setattr(dev.subprocess, "Popen", interrupting_popen)
+
+    assert dev.main() == 128 + signal.SIGTERM
+    assert popen_calls == 1
+    assert api.terminated and api.waited
+    assert capsys.readouterr().out == ""
+
+
+def test_launcher_kills_and_reaps_first_child_when_dashboard_startup_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dev = _load_dev_module()
+
+    class NonCooperativeProcess:
+        def __init__(self) -> None:
+            self.returncode: int | None = None
+            self.terminated = False
+            self.killed = False
+            self.wait_timeouts: list[float | None] = []
+
+        def poll(self) -> int | None:
+            return self.returncode
+
+        def send_signal(self, _signum: int) -> None:
+            pass
+
+        def terminate(self) -> None:
+            self.terminated = True
+
+        def kill(self) -> None:
+            self.killed = True
+            self.returncode = -signal.SIGKILL
+
+        def wait(self, timeout: float | None = None) -> int:
+            self.wait_timeouts.append(timeout)
+            assert timeout is not None, "launcher cleanup waits must be bounded"
+            if self.returncode is None:
+                raise subprocess.TimeoutExpired("api", timeout)
+            return self.returncode
+
+    api = NonCooperativeProcess()
+    popen_calls = 0
+
+    def failing_popen(*_args: object, **_kwargs: object) -> NonCooperativeProcess:
+        nonlocal popen_calls
+        popen_calls += 1
+        if popen_calls == 1:
+            return api
+        raise OSError("npm unavailable")
+
+    monkeypatch.setattr(dev.signal, "signal", lambda *_args: None)
+    monkeypatch.setattr(dev.subprocess, "Popen", failing_popen)
+
+    with pytest.raises(OSError, match="^npm unavailable$"):
+        dev.main()
+
+    assert popen_calls == 2
+    assert api.terminated and api.killed
+    assert len(api.wait_timeouts) == 2
+    assert all(timeout is not None for timeout in api.wait_timeouts)

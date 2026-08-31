@@ -13,6 +13,12 @@ from argusfinance.config import Settings
 _API_HOST = "127.0.0.1"
 _DASHBOARD_HOST = "127.0.0.1"
 _DASHBOARD_PORT = 5173
+_TERMINATE_TIMEOUT_SECONDS = 5.0
+_KILL_TIMEOUT_SECONDS = 5.0
+
+
+def _normalize_returncode(returncode: int) -> int:
+    return 128 - returncode if returncode < 0 else returncode
 
 
 def _forward_signal(processes: Sequence[subprocess.Popen[bytes]], signum: int) -> None:
@@ -26,7 +32,11 @@ def _stop_and_reap(processes: Sequence[subprocess.Popen[bytes]]) -> None:
         if process.poll() is None:
             process.terminate()
     for process in processes:
-        process.wait()
+        try:
+            process.wait(timeout=_TERMINATE_TIMEOUT_SECONDS)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=_KILL_TIMEOUT_SECONDS)
 
 
 def main() -> int:
@@ -34,6 +44,16 @@ def main() -> int:
     repo_root = Path(__file__).resolve().parents[1]
     api_port = Settings().api_port
     processes: list[subprocess.Popen[bytes]] = []
+    received_signal: int | None = None
+
+    def handle_signal(signum: int, _frame: FrameType | None) -> None:
+        nonlocal received_signal
+        if received_signal is None:
+            received_signal = signum
+        _forward_signal(processes, signum)
+
+    signal.signal(signal.SIGINT, handle_signal)
+    signal.signal(signal.SIGTERM, handle_signal)
 
     try:
         processes.append(
@@ -51,6 +71,8 @@ def main() -> int:
                 cwd=repo_root,
             )
         )
+        if received_signal is not None:
+            return 128 + received_signal
         processes.append(
             subprocess.Popen(
                 [
@@ -69,12 +91,8 @@ def main() -> int:
                 cwd=repo_root,
             )
         )
-
-        def handle_signal(signum: int, _frame: FrameType | None) -> None:
-            _forward_signal(processes, signum)
-
-        signal.signal(signal.SIGINT, handle_signal)
-        signal.signal(signal.SIGTERM, handle_signal)
+        if received_signal is not None:
+            return 128 + received_signal
 
         print(f"ArgusFinance API: http://{_API_HOST}:{api_port}", flush=True)
         print(
@@ -83,10 +101,12 @@ def main() -> int:
         )
 
         while True:
+            if received_signal is not None:
+                return 128 + received_signal
             for process in processes:
                 returncode = process.poll()
                 if returncode is not None:
-                    return returncode
+                    return _normalize_returncode(returncode)
             time.sleep(0.1)
     finally:
         _stop_and_reap(processes)

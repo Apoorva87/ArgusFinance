@@ -1,6 +1,7 @@
 """Tests for the narrowly read-only IBKR connection diagnostic."""
 
 import pytest
+from ib_async import StartupFetchNONE
 
 from argusfinance.adapters.ibkr import IbkrConnectionSettings, IbkrMarketDataProvider
 
@@ -43,8 +44,10 @@ def test_diagnostic_uses_one_readonly_connection_and_always_disconnects():
             "clientId": 17,
             "timeout": 4,
             "readonly": True,
+            "fetchFields": StartupFetchNONE,
         }
     ]
+    assert client.connect_calls[0]["fetchFields"] is StartupFetchNONE
     assert client.disconnect_calls == 1
 
 
