@@ -1,0 +1,35 @@
+# Task 9 report: fixed agent roster and local plugin shell
+
+## Delivered files
+
+- `.codex/config.toml` and six stable `.codex/agents/*.toml` definitions.
+- `.codex-plugin/plugin.json` and local-only `.mcp.json` for `uv run argusfinance-mcp`.
+- `skills/evaluate-ticker/SKILL.md`.
+- Five role-memory files for each of the six roles under `agents/<role>/`.
+- `scripts/validate_agent_roster.py` and mutation-oriented `tests/test_agent_roster.py`.
+
+## TDD evidence
+
+The first roster test run was RED because `scripts.validate_agent_roster` and the roster configuration did not yet exist. The completed focused suite is GREEN: five tests pass, including copied-tree mutations for an extra agent, early risk critique, paper-order authority, and analytical browser authority.
+
+## Skill pressure RED baseline
+
+Five fresh-context pressure runs without the skill skipped the historical role. Four ran risk before strategy; all five opened or prefilled OptionStrat early and promoted lessons directly to durable memory; three authorized paper-order submission. Recorded rationalizations were: "deadline dominates," "missing roles are non-blocking," "defined risk is enough," and "paper trade" as a lowered authority threshold.
+
+The delivered skill directly requires all analytical lanes, stages strategy before risk, makes visual handoff explicit-only and operator-free, confines proposals to `pending.md`, and forbids live and paper orders.
+
+## Validation
+
+- `uv run pytest tests/test_agent_roster.py -v` — 5 passed.
+- `uv run python scripts/validate_agent_roster.py` — exact six-role roster validated.
+- `validate_plugin.py .` — passed.
+- `quick_validate.py skills/evaluate-ticker` — passed.
+- `uv run pytest -v` — 58 passed.
+- `uv run ruff check src tests migrations scripts` — passed.
+- `uv run mypy src/argusfinance` — passed.
+
+Feature commit: `cdba158` (`feat: add fixed agent roster and plugin shell`).
+
+## Concern / next validation
+
+Skill GREEN forward testing remains pending controller execution: the controller must run the required five fresh-context pressure tests and return failures, if any, for refactoring. The plugin was not installed globally, no marketplace was modified, and no OptionStrat/browser action was invoked.
