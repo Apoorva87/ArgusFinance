@@ -1,6 +1,8 @@
 """Tests for the shared market snapshot application service."""
 
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import Event
 
 import pytest
 
@@ -38,6 +40,35 @@ class FailingMetadataRepository:
 
     def latest_for_ticker(self, ticker: str) -> None:
         return None
+
+
+class BlockingFailingMetadataRepository(FailingMetadataRepository):
+    """Pause after Parquet publication, then fail metadata persistence."""
+
+    def __init__(self, entered: Event, release: Event) -> None:
+        self._entered = entered
+        self._release = release
+
+    def add(self, metadata: object) -> None:
+        self._entered.set()
+        if not self._release.wait(timeout=5):
+            raise TimeoutError("test did not release metadata failure")
+        raise RuntimeError("metadata failed")
+
+
+class SignalingMetadataRepository:
+    """Signal when a second service has committed snapshot metadata."""
+
+    def __init__(self, delegate: SnapshotMetadataRepository, added: Event) -> None:
+        self._delegate = delegate
+        self._added = added
+
+    def add(self, metadata: SnapshotMetadata) -> None:
+        self._delegate.add(metadata)
+        self._added.set()
+
+    def latest_for_ticker(self, ticker: str) -> SnapshotMetadata | None:
+        return self._delegate.latest_for_ticker(ticker)
 
 
 @pytest.fixture
@@ -127,6 +158,39 @@ def test_capture_preserves_preexisting_parquet_when_metadata_persistence_fails(
 
     assert preexisting_path.exists()
     assert snapshot_store.read(snapshot.snapshot_id) == snapshot
+
+
+def test_capture_serializes_compensation_across_service_instances(
+    snapshot_store: SnapshotStore,
+    metadata_repository: SnapshotMetadataRepository,
+) -> None:
+    failed_add_entered = Event()
+    release_failed_add = Event()
+    successful_add = Event()
+    failing_service = MarketService(
+        MockMarketDataProvider(),
+        SnapshotStore(snapshot_store.root),
+        BlockingFailingMetadataRepository(failed_add_entered, release_failed_add),
+    )
+    successful_service = MarketService(
+        MockMarketDataProvider(),
+        SnapshotStore(snapshot_store.root),
+        SignalingMetadataRepository(metadata_repository, successful_add),
+    )
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        failed_capture = executor.submit(failing_service.capture, "NVDA")
+        assert failed_add_entered.wait(timeout=2)
+        successful_capture = executor.submit(successful_service.capture, "NVDA")
+        assert not successful_add.wait(timeout=0.5)
+        release_failed_add.set()
+
+        with pytest.raises(RuntimeError, match="metadata failed"):
+            failed_capture.result(timeout=5)
+        captured = successful_capture.result(timeout=5)
+
+    assert snapshot_store.read(captured.snapshot_id) == captured
+    assert metadata_repository.get(str(captured.snapshot_id)) is not None
 
 
 def test_repeated_capture_returns_persisted_snapshot_without_duplicate_metadata_error(

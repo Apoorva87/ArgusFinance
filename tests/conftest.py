@@ -10,15 +10,17 @@ from alembic.config import Config
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
-def _upgrade_to_head(database_url: str) -> None:
+def _upgrade_to_head(database_url: str | None = None) -> None:
     """Apply the documented local setup step against one database URL."""
     config = Config(str(_REPO_ROOT / "alembic.ini"))
     config.set_main_option("script_location", str(_REPO_ROOT / "migrations"))
-    config.set_main_option("sqlalchemy.url", database_url)
+    if database_url is not None:
+        config.set_main_option("sqlalchemy.url", database_url)
+        config.attributes["argus_database_url_explicit"] = True
     command.upgrade(config, "head")
 
 
 @pytest.fixture
-def apply_migrations() -> Callable[[str], None]:
+def apply_migrations() -> Callable[[str | None], None]:
     """Provision a test database the same way `make migrate` provisions a local one."""
     return _upgrade_to_head

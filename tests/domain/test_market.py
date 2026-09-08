@@ -124,17 +124,74 @@ def test_option_quote_accepts_unavailable_greeks() -> None:
     assert option.vega is None
 
 
+def test_market_snapshot_rejects_an_empty_option_chain() -> None:
+    observed = datetime(2026, 8, 28, 20, 0, tzinfo=UTC)
+
+    with pytest.raises(ValidationError, match="at least one option quote"):
+        MarketSnapshot(
+            snapshot_id=UUID("00000000-0000-0000-0000-000000000001"),
+            underlying=_underlying_quote(observed),
+            options=(),
+            created_at=observed,
+        )
+
+
+def test_market_snapshot_rejects_an_option_for_another_ticker() -> None:
+    observed = datetime(2026, 8, 28, 20, 0, tzinfo=UTC)
+
+    with pytest.raises(ValidationError, match="must match underlying ticker"):
+        MarketSnapshot(
+            snapshot_id=UUID("00000000-0000-0000-0000-000000000001"),
+            underlying=_underlying_quote(observed),
+            options=(_option_quote(observed, ticker="AAPL"),),
+            created_at=observed,
+        )
+
+
+def test_market_snapshot_rejects_duplicate_normalized_option_identity() -> None:
+    observed = datetime(2026, 8, 28, 20, 0, tzinfo=UTC)
+    first = _option_quote(observed, ticker="NVDA")
+    duplicate = _option_quote(observed, ticker=" nvda ", ask=Decimal("4.10"))
+
+    with pytest.raises(ValidationError, match="duplicate option identity"):
+        MarketSnapshot(
+            snapshot_id=UUID("00000000-0000-0000-0000-000000000001"),
+            underlying=_underlying_quote(observed),
+            options=(first, duplicate),
+            created_at=observed,
+        )
+
+
+def test_market_snapshot_canonicalizes_option_order() -> None:
+    observed = datetime(2026, 8, 28, 20, 0, tzinfo=UTC)
+    later_call = _option_quote(observed, expiration=date(2026, 10, 16))
+    earlier_put = _option_quote(observed, option_type="PUT")
+    earlier_call = _option_quote(observed)
+
+    snapshot = MarketSnapshot(
+        snapshot_id=UUID("00000000-0000-0000-0000-000000000001"),
+        underlying=_underlying_quote(observed),
+        options=(later_call, earlier_put, earlier_call),
+        created_at=observed,
+    )
+
+    assert snapshot.options == (earlier_call, earlier_put, later_call)
+
+
 def _option_quote(
     observed: datetime,
     *,
+    ticker: str = "NVDA",
+    expiration: date = date(2026, 9, 18),
+    option_type: str = "CALL",
     bid: Decimal = Decimal("3.95"),
     ask: Decimal = Decimal("4.05"),
 ) -> OptionQuote:
     return OptionQuote(
-        ticker="NVDA",
-        expiration=date(2026, 9, 18),
+        ticker=ticker,
+        expiration=expiration,
         strike=Decimal(180),
-        option_type="CALL",
+        option_type=option_type,  # type: ignore[arg-type]
         bid=bid,
         ask=ask,
         volume=100,
@@ -144,6 +201,17 @@ def _option_quote(
         gamma=Decimal("0.01"),
         theta=Decimal("-0.10"),
         vega=Decimal("0.20"),
+        source="mock",
+        source_timestamp=observed,
+        retrieved_at=observed,
+        status=MarketDataStatus.REALTIME,
+    )
+
+
+def _underlying_quote(observed: datetime) -> UnderlyingQuote:
+    return UnderlyingQuote(
+        ticker="NVDA",
+        price=Decimal("180.25"),
         source="mock",
         source_timestamp=observed,
         retrieved_at=observed,

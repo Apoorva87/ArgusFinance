@@ -1,11 +1,15 @@
 """Immutable, normalized Parquet storage for market snapshots."""
 
+import fcntl
 import os
 import re
+import threading
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import UTC
 from pathlib import Path
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import duckdb
 import pyarrow as pa  # type: ignore[import-untyped]
@@ -61,6 +65,10 @@ _SCHEMA = pa.schema(
     ]
 )
 
+_PROCESS_LOCKS_GUARD = threading.Lock()
+_PROCESS_LOCKS: dict[Path, threading.RLock] = {}
+_HELD_LOCKS = threading.local()
+
 
 class SnapshotStore:
     """Store and retrieve complete market snapshots under an injected root."""
@@ -71,55 +79,74 @@ class SnapshotStore:
     def write(self, snapshot: MarketSnapshot) -> Path:
         """Persist a snapshot once, preserving UUID-addressed immutable history."""
         canonical = _canonical_snapshot(snapshot)
-        existing = self._paths_for_snapshot(canonical.snapshot_id)
-        if existing:
-            if len(existing) == 1 and self.read(canonical.snapshot_id) == canonical:
-                return existing[0]
-            raise SnapshotConflictError(
-                f"snapshot {canonical.snapshot_id} already exists with different immutable content"
-            )
+        with self.lock(canonical.snapshot_id):
+            existing = self._paths_for_snapshot(canonical.snapshot_id)
+            if existing:
+                if len(existing) == 1 and self.read(canonical.snapshot_id) == canonical:
+                    return existing[0]
+                raise SnapshotConflictError(
+                    f"snapshot {canonical.snapshot_id} already exists with different immutable content"
+                )
 
-        path = self._contained_destination(self._path_for(canonical))
-        temporary = self._contained_destination(path.with_suffix(".parquet.tmp"))
-        path.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            pq.write_table(pa.Table.from_pylist(_rows(canonical), schema=_SCHEMA), temporary)
-            os.replace(temporary, path)
-        except BaseException:
-            temporary.unlink(missing_ok=True)
-            raise
-        return path
+            path = self._contained_destination(self._path_for(canonical))
+            temporary = self._contained_destination(
+                path.with_name(f".{path.name}.{uuid4()}.tmp")
+            )
+            path.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                pq.write_table(pa.Table.from_pylist(_rows(canonical), schema=_SCHEMA), temporary)
+                os.replace(temporary, path)
+            except BaseException:
+                temporary.unlink(missing_ok=True)
+                raise
+            return path
 
     def read(self, snapshot_id: UUID | str) -> MarketSnapshot:
         """Read exactly one UUID-addressed file through DuckDB."""
         resolved_id = _parse_snapshot_id(snapshot_id)
-        paths = self._paths_for_snapshot(resolved_id)
-        if not paths:
-            raise SnapshotNotFoundError(f"snapshot {resolved_id} was not found")
-        if len(paths) != 1:
-            raise SnapshotConflictError(f"snapshot {resolved_id} has multiple immutable files")
+        with self.lock(resolved_id):
+            paths = self._paths_for_snapshot(resolved_id)
+            if not paths:
+                raise SnapshotNotFoundError(f"snapshot {resolved_id} was not found")
+            if len(paths) != 1:
+                raise SnapshotConflictError(
+                    f"snapshot {resolved_id} has multiple immutable files"
+                )
 
-        connection = duckdb.connect()
-        try:
-            relation = connection.execute(
-                """
-                SELECT * FROM read_parquet(?)
-                ORDER BY option_expiration, option_strike, option_type
-                """,
-                [str(paths[0])],
-            )
-            rows = relation.to_arrow_table().to_pylist()
-        finally:
-            connection.close()
-        if not rows:
-            raise SnapshotNotFoundError(f"snapshot {resolved_id} contains no option quotes")
-        return _snapshot_from_rows(rows, resolved_id)
+            connection = duckdb.connect()
+            try:
+                relation = connection.execute(
+                    """
+                    SELECT * FROM read_parquet(?)
+                    ORDER BY option_expiration, option_strike, option_type
+                    """,
+                    [str(paths[0])],
+                )
+                rows = relation.to_arrow_table().to_pylist()
+            finally:
+                connection.close()
+            if not rows:
+                raise SnapshotNotFoundError(
+                    f"snapshot {resolved_id} contains no option quotes"
+                )
+            return _snapshot_from_rows(rows, resolved_id)
 
     def delete(self, snapshot_id: UUID | str) -> None:
         """Delete only the exact UUID-addressed Parquet file, if present."""
         resolved_id = _parse_snapshot_id(snapshot_id)
-        for path in self._paths_for_snapshot(resolved_id):
-            path.unlink(missing_ok=True)
+        with self.lock(resolved_id):
+            for path in self._paths_for_snapshot(resolved_id):
+                path.unlink(missing_ok=True)
+
+    @contextmanager
+    def lock(self, snapshot_id: UUID | str) -> Iterator[None]:
+        """Serialize one UUID workflow across local threads and processes."""
+        resolved_id = _parse_snapshot_id(snapshot_id)
+        lock_path = self._contained_destination(
+            self.root / ".locks" / f"snapshot={resolved_id}.lock"
+        )
+        with _exclusive_file_lock(lock_path):
+            yield
 
     def _path_for(self, snapshot: MarketSnapshot) -> Path:
         ticker = _ticker_partition_token(snapshot.underlying.ticker)
@@ -246,3 +273,28 @@ def _ticker_partition_token(ticker: str) -> str:
     if not re.fullmatch(r"[A-Z0-9][A-Z0-9.-]*", ticker):
         raise SnapshotPathError("ticker must be a safe partition token")
     return ticker
+
+
+@contextmanager
+def _exclusive_file_lock(path: Path) -> Iterator[None]:
+    with _PROCESS_LOCKS_GUARD:
+        process_lock = _PROCESS_LOCKS.setdefault(path, threading.RLock())
+
+    with process_lock:
+        held_paths = getattr(_HELD_LOCKS, "paths", None)
+        if held_paths is None:
+            held_paths = set()
+            _HELD_LOCKS.paths = held_paths
+        if path in held_paths:
+            yield
+            return
+
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a+b") as lock_file:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+            held_paths.add(path)
+            try:
+                yield
+            finally:
+                held_paths.remove(path)
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)

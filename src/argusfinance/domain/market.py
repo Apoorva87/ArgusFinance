@@ -93,3 +93,40 @@ class MarketSnapshot(_MarketValue):
     underlying: UnderlyingQuote
     options: tuple[OptionQuote, ...]
     created_at: datetime
+
+    @field_validator("options")
+    @classmethod
+    def _validate_and_order_options(
+        cls, options: tuple[OptionQuote, ...]
+    ) -> tuple[OptionQuote, ...]:
+        if not options:
+            raise ValueError("snapshot must contain at least one option quote")
+
+        identities: set[tuple[str, date, Decimal, str]] = set()
+        for option in options:
+            identity = (
+                option.ticker,
+                option.expiration,
+                option.strike,
+                option.option_type,
+            )
+            if identity in identities:
+                raise ValueError("snapshot contains duplicate option identity")
+            identities.add(identity)
+
+        return tuple(
+            sorted(
+                options,
+                key=lambda option: (
+                    option.expiration,
+                    option.strike,
+                    option.option_type,
+                ),
+            )
+        )
+
+    @model_validator(mode="after")
+    def _option_tickers_must_match_underlying(self) -> "MarketSnapshot":
+        if any(option.ticker != self.underlying.ticker for option in self.options):
+            raise ValueError("option ticker must match underlying ticker")
+        return self

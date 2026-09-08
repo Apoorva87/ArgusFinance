@@ -1,6 +1,13 @@
 """Tests for immutable Parquet market-snapshot persistence."""
 
+import multiprocessing
+import sys
+from decimal import Decimal
+from multiprocessing.synchronize import Barrier
 from pathlib import Path
+from queue import Queue
+from threading import BrokenBarrierError
+from typing import Any
 from uuid import UUID
 
 import pyarrow.parquet as pq
@@ -12,6 +19,40 @@ from argusfinance.storage.snapshots import (
     SnapshotNotFoundError,
     SnapshotStore,
 )
+
+
+class _CoordinatedSnapshotStore(SnapshotStore):
+    """Make concurrent workers return the same initial existence check."""
+
+    def __init__(self, root: Path, barrier: Barrier) -> None:
+        super().__init__(root)
+        self._barrier = barrier
+        self._first_check = True
+
+    def _paths_for_snapshot(self, snapshot_id: UUID) -> list[Path]:
+        paths = super()._paths_for_snapshot(snapshot_id)
+        if self._first_check:
+            self._first_check = False
+            try:
+                self._barrier.wait(timeout=0.5)
+            except BrokenBarrierError:
+                pass
+        return paths
+
+
+def _write_in_process(
+    root: Path,
+    snapshot: Any,
+    barrier: Barrier,
+    results: Queue[str],
+) -> None:
+    store = _CoordinatedSnapshotStore(root, barrier)
+    try:
+        store.write(snapshot)
+    except SnapshotConflictError:
+        results.put("conflict")
+    else:
+        results.put("ok")
 
 
 @pytest.fixture
@@ -118,13 +159,41 @@ def test_write_rejects_different_content_for_existing_snapshot_id(
 ) -> None:
     snapshot_store.write(snapshot)
     conflicting = snapshot.model_copy(
-        update={"underlying": snapshot.underlying.model_copy(update={"price": "181.00"})}
+        update={
+            "underlying": snapshot.underlying.model_copy(update={"price": Decimal("181.00")})
+        }
     )
 
     with pytest.raises(SnapshotConflictError, match="immutable"):
         snapshot_store.write(conflicting)
 
     assert snapshot_store.read(snapshot.snapshot_id) == snapshot
+
+
+def test_identical_concurrent_process_writes_are_both_idempotent(
+    tmp_path: Path, snapshot  # type: ignore[no-untyped-def]
+) -> None:
+    results = _run_concurrent_writes(tmp_path, (snapshot, snapshot))
+
+    assert results == ["ok", "ok"]
+    assert SnapshotStore(tmp_path).read(snapshot.snapshot_id) == snapshot
+    assert list(tmp_path.rglob("*.tmp")) == []
+
+
+def test_conflicting_concurrent_process_writes_never_replace_first_content(
+    tmp_path: Path, snapshot  # type: ignore[no-untyped-def]
+) -> None:
+    conflicting = snapshot.model_copy(
+        update={
+            "underlying": snapshot.underlying.model_copy(update={"price": Decimal("181.00")})
+        }
+    )
+
+    results = _run_concurrent_writes(tmp_path, (snapshot, conflicting))
+
+    assert results == ["conflict", "ok"]
+    assert SnapshotStore(tmp_path).read(snapshot.snapshot_id) in (snapshot, conflicting)
+    assert list(tmp_path.rglob("*.tmp")) == []
 
 
 def test_read_missing_snapshot_raises_domain_error(snapshot_store: SnapshotStore) -> None:
@@ -177,3 +246,26 @@ def test_write_rejects_ticker_path_traversal_before_creating_outside_root(
         store.write(crafted)
 
     assert not outside_path.exists()
+
+
+def _run_concurrent_writes(root: Path, snapshots: tuple[Any, Any]) -> list[str]:
+    repository_root = str(Path(__file__).resolve().parents[2])
+    if repository_root not in sys.path:
+        sys.path.insert(0, repository_root)
+    context = multiprocessing.get_context("spawn")
+    barrier = context.Barrier(2)
+    results = context.Queue()
+    processes = [
+        context.Process(
+            target=_write_in_process,
+            args=(root, snapshot, barrier, results),
+        )
+        for snapshot in snapshots
+    ]
+    for process in processes:
+        process.start()
+    for process in processes:
+        process.join(timeout=10)
+
+    assert [process.exitcode for process in processes] == [0, 0]
+    return sorted(results.get(timeout=1) for _ in processes)

@@ -80,7 +80,27 @@ def test_replay_provider_rejects_ticker_and_horizon_mismatch(tmp_path: Path) -> 
                     "retrieved_at": "2026-08-28T20:00:00Z",
                     "status": "FROZEN",
                 },
-                "options": [],
+                "options": [
+                    {
+                        "ticker": "NVDA",
+                        "expiration": "2026-09-18",
+                        "strike": "175",
+                        "option_type": "CALL",
+                        "bid": "8.60",
+                        "ask": "8.80",
+                        "volume": 1,
+                        "open_interest": 2,
+                        "implied_volatility": "0.44",
+                        "delta": None,
+                        "gamma": None,
+                        "theta": None,
+                        "vega": None,
+                        "source": "replay",
+                        "source_timestamp": "2026-08-28T20:00:00Z",
+                        "retrieved_at": "2026-08-28T20:00:00Z",
+                        "status": "FROZEN",
+                    }
+                ],
                 "created_at": "2026-08-28T20:00:00Z",
             }
         ),

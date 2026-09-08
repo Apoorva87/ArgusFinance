@@ -40,29 +40,30 @@ class MarketService:
         except ValueError as error:
             raise ProviderInputError(str(error)) from error
 
-        existed_before_write = self._snapshot_exists(snapshot)
-        parquet_path = self._snapshot_store.write(snapshot)
-        metadata = SnapshotMetadata(
-            snapshot_id=str(snapshot.snapshot_id),
-            ticker=snapshot.underlying.ticker,
-            provider=snapshot.underlying.source,
-            status=snapshot.underlying.status.value,
-            source_timestamp=snapshot.underlying.source_timestamp,
-            retrieved_at=snapshot.underlying.retrieved_at,
-            parquet_path=str(self._relative_parquet_path(parquet_path)),
-        )
-        try:
-            self._metadata_repository.add(metadata)
-        except DuplicateSnapshotError:
-            # The provider may deterministically replay an immutable snapshot.
-            # Metadata already points at the same UUID; return its persisted
-            # content without replacing or mutating either record.
+        with self._snapshot_store.lock(snapshot.snapshot_id):
+            existed_before_write = self._snapshot_exists(snapshot)
+            parquet_path = self._snapshot_store.write(snapshot)
+            metadata = SnapshotMetadata(
+                snapshot_id=str(snapshot.snapshot_id),
+                ticker=snapshot.underlying.ticker,
+                provider=snapshot.underlying.source,
+                status=snapshot.underlying.status.value,
+                source_timestamp=snapshot.underlying.source_timestamp,
+                retrieved_at=snapshot.underlying.retrieved_at,
+                parquet_path=str(self._relative_parquet_path(parquet_path)),
+            )
+            try:
+                self._metadata_repository.add(metadata)
+            except DuplicateSnapshotError:
+                # The provider may deterministically replay an immutable snapshot.
+                # Metadata already points at the same UUID; return its persisted
+                # content without replacing or mutating either record.
+                return self._snapshot_store.read(snapshot.snapshot_id)
+            except Exception:
+                if not existed_before_write:
+                    self._snapshot_store.delete(snapshot.snapshot_id)
+                raise
             return self._snapshot_store.read(snapshot.snapshot_id)
-        except Exception:
-            if not existed_before_write:
-                self._snapshot_store.delete(snapshot.snapshot_id)
-            raise
-        return self._snapshot_store.read(snapshot.snapshot_id)
 
     def latest(self, ticker: str) -> MarketSnapshot:
         """Read the exact snapshot referenced by the newest ticker metadata."""

@@ -1,19 +1,20 @@
 """Alembic environment for ArgusFinance operational metadata."""
 
-import os
 from logging.config import fileConfig
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+from argusfinance.config import Settings
 from argusfinance.storage.database import ensure_sqlite_file_parent
 from argusfinance.storage.models import Base
 
 config = context.config
 
-database_url = os.environ.get("ARGUS_DATABASE_URL")
-if database_url is not None:
-    config.set_main_option("sqlalchemy.url", database_url)
+# Programmatic callers that inject a URL set this attribute so tests and tools
+# remain isolated from the caller's ambient environment and .env file.
+if not config.attributes.get("argus_database_url_explicit", False):
+    config.set_main_option("sqlalchemy.url", Settings().database_url)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
