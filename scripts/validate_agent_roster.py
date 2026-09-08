@@ -124,8 +124,14 @@ def validate_roster(root: Path) -> set[str]:
     agent_dir = root / ".codex" / "agents"
     _require({path.name for path in agent_dir.glob("*.toml")} == set(ROLE_FILES.values()), "agent files must define exactly the approved roster")
     for role, filename in ROLE_FILES.items():
-        _require(agents[role].get("config_file") == f".codex/agents/{filename}", f"agent config mapping invalid: {role}")
-        _validate_agent(role, agent_dir / filename)
+        config_file = agents[role].get("config_file")
+        _require(isinstance(config_file, str) and bool(config_file), f"agent config path missing: {role}")
+        relative_path = Path(config_file)
+        _require(not relative_path.is_absolute(), f"agent config path must be portable: {role}")
+        # Codex resolves these from the declaring config, not the repository root.
+        resolved = (root / ".codex" / relative_path).resolve()
+        _require(resolved == (agent_dir / filename).resolve() and resolved.is_file(), f"agent config mapping invalid: {role}")
+        _validate_agent(role, resolved)
         _validate_memory(root, role)
     _validate_plugin(root)
     _validate_skill(root)

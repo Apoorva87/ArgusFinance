@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import importlib.util
 import shutil
+import subprocess
+import sys
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -40,6 +43,50 @@ def _copy_project(tmp_path: Path) -> Path:
 
 def test_project_defines_exact_approved_roster() -> None:
     assert validate_roster(ROOT) == EXPECTED_ROSTER
+
+
+def test_role_paths_resolve_from_declaring_config_in_relocated_checkout(tmp_path: Path) -> None:
+    project = _copy_project(tmp_path)
+    config_path = project / ".codex" / "config.toml"
+    config = tomllib.loads(config_path.read_text())
+    for role in EXPECTED_ROSTER:
+        role_path = config_path.parent / config["agents"][role]["config_file"]
+        assert role_path.is_file(), f"Codex cannot load {role} at {role_path}"
+        assert tomllib.loads(role_path.read_text())["name"] == role
+
+
+def test_validator_rejects_path_that_only_resolves_from_repo_root(tmp_path: Path) -> None:
+    project = _copy_project(tmp_path)
+    config = project / ".codex" / "config.toml"
+    config.write_text(config.read_text().replace(
+        'config_file = "agents/', 'config_file = ".codex/agents/'
+    ))
+    with pytest.raises(ValueError, match="config.*path|config.*mapping"):
+        validate_roster(project)
+
+
+def test_install_agents_is_repeatable_and_validates_relocated_checkout(tmp_path: Path) -> None:
+    project = _copy_project(tmp_path)
+    shutil.copy2(ROOT / "Makefile", project / "Makefile")
+    shutil.copytree(ROOT / "scripts", project / "scripts")
+    for _ in range(2):
+        result = subprocess.run(
+            ["make", "install-agents", f"PYTHON={sys.executable}"],
+            cwd=project, capture_output=True, text=True, check=False,
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "Validated roster:" in result.stdout
+        assert (project / ".claude/skills/evaluate-ticker/SKILL.md").read_text() == (
+            project / "skills/evaluate-ticker/SKILL.md"
+        ).read_text()
+    config = project / ".codex/config.toml"
+    config.write_text(config.read_text().replace("company-analyst.toml", "missing.toml"))
+    result = subprocess.run(
+        ["make", "install-agents", f"PYTHON={sys.executable}"],
+        cwd=project, capture_output=True, text=True, check=False,
+    )
+    assert result.returncode != 0
+    assert "config" in result.stderr
 
 
 def test_rejects_an_extra_role_definition(tmp_path: Path) -> None:

@@ -1,6 +1,8 @@
-.PHONY: install install-skills migrate dev test lint typecheck dashboard-test dashboard-build quality run
+.PHONY: install install-agents install-skills validate-agents migrate dev test lint typecheck dashboard-test dashboard-build quality run
 
-install: install-skills
+PYTHON ?= uv run --locked python
+
+install: install-agents
 	uv sync --locked
 	npm ci --prefix apps/dashboard
 
@@ -9,6 +11,12 @@ install: install-skills
 install-skills:
 	mkdir -p .claude/skills
 	ln -sfn ../../skills/evaluate-ticker .claude/skills/evaluate-ticker
+
+# Role definitions are versioned and project-local; validate them on every install.
+install-agents: validate-agents install-skills
+
+validate-agents:
+	$(PYTHON) scripts/validate_agent_roster.py
 
 migrate:
 	uv run alembic upgrade head
@@ -32,7 +40,7 @@ dashboard-test:
 dashboard-build:
 	npm run build --prefix apps/dashboard
 
-quality: lint typecheck dashboard-test dashboard-build
+quality: validate-agents lint typecheck dashboard-test dashboard-build
 
 run:
 	uv run uvicorn argusfinance.api.app:app --host 127.0.0.1 --port "$$(uv run python -c 'from argusfinance.config import Settings; print(Settings().api_port)')"
