@@ -1,22 +1,25 @@
+// Captured verbatim from GET /api/market/NVDA/latest.
+// Decimal values keep the storage scale the API actually serves, so the
+// dashboard tests exercise the same text a browser receives.
 export const nvdaSnapshot = {
   snapshot_id: "00000000-0000-0000-0000-000000000001",
   underlying: {
     ticker: "NVDA",
-    price: "180.25",
+    price: "180.2500000000",
     source: "mock",
     source_timestamp: "2026-08-28T20:00:00Z",
     retrieved_at: "2026-08-28T20:00:00Z",
     status: "FROZEN",
   },
   options: [
-    { ticker: "NVDA", expiration: "2026-09-18", strike: "175", option_type: "CALL", bid: "8.60", ask: "8.80", volume: 1200, open_interest: 8500, implied_volatility: "0.440", delta: "0.64", gamma: "0.012", theta: "-0.15", vega: "0.21", source: "mock", source_timestamp: "2026-08-28T20:00:00Z", retrieved_at: "2026-08-28T20:00:00Z", status: "FROZEN" },
-    { ticker: "NVDA", expiration: "2026-09-18", strike: "175", option_type: "PUT", bid: "3.15", ask: "3.30", volume: 780, open_interest: 6100, implied_volatility: "0.450", delta: "-0.36", gamma: "0.012", theta: "-0.13", vega: "0.20", source: "mock", source_timestamp: "2026-08-28T20:00:00Z", retrieved_at: "2026-08-28T20:00:00Z", status: "FROZEN" },
-    { ticker: "NVDA", expiration: "2026-09-18", strike: "185", option_type: "CALL", bid: "3.75", ask: "3.90", volume: 960, open_interest: 7200, implied_volatility: "0.460", delta: "0.42", gamma: "0.013", theta: "-0.14", vega: "0.22", source: "mock", source_timestamp: "2026-08-28T20:00:00Z", retrieved_at: "2026-08-28T20:00:00Z", status: "FROZEN" },
-    { ticker: "NVDA", expiration: "2026-09-18", strike: "185", option_type: "PUT", bid: "7.75", ask: "7.95", volume: 650, open_interest: 5900, implied_volatility: "0.470", delta: "-0.58", gamma: "0.013", theta: "-0.16", vega: "0.21", source: "mock", source_timestamp: "2026-08-28T20:00:00Z", retrieved_at: "2026-08-28T20:00:00Z", status: "FROZEN" },
-    { ticker: "NVDA", expiration: "2026-10-16", strike: "175", option_type: "CALL", bid: "11.20", ask: "11.45", volume: 540, open_interest: 4300, implied_volatility: "0.455", delta: "0.63", gamma: "0.009", theta: "-0.11", vega: "0.32", source: "mock", source_timestamp: "2026-08-28T20:00:00Z", retrieved_at: "2026-08-28T20:00:00Z", status: "FROZEN" },
-    { ticker: "NVDA", expiration: "2026-10-16", strike: "175", option_type: "PUT", bid: "5.70", ask: "5.95", volume: 430, open_interest: 3900, implied_volatility: "0.465", delta: "-0.37", gamma: "0.009", theta: "-0.10", vega: "0.31", source: "mock", source_timestamp: "2026-08-28T20:00:00Z", retrieved_at: "2026-08-28T20:00:00Z", status: "FROZEN" },
-    { ticker: "NVDA", expiration: "2026-10-16", strike: "185", option_type: "CALL", bid: "6.10", ask: "6.35", volume: 480, open_interest: 4100, implied_volatility: "0.475", delta: "0.45", gamma: "0.010", theta: "-0.12", vega: "0.33", source: "mock", source_timestamp: "2026-08-28T20:00:00Z", retrieved_at: "2026-08-28T20:00:00Z", status: "FROZEN" },
-    { ticker: "NVDA", expiration: "2026-10-16", strike: "185", option_type: "PUT", bid: "9.95", ask: "10.20", volume: 390, open_interest: 3600, implied_volatility: "0.485", delta: "-0.55", gamma: "0.010", theta: "-0.13", vega: "0.32", source: "mock", source_timestamp: "2026-08-28T20:00:00Z", retrieved_at: "2026-08-28T20:00:00Z", status: "FROZEN" },
+    { ticker: "NVDA", expiration: "2026-09-18", strike: "175.0000000000", option_type: "CALL", bid: "8.6000000000", ask: "8.8000000000", volume: 1200, open_interest: 8500, implied_volatility: "0.440000000000", delta: "0.640000000000", gamma: "0.012000000000", theta: "-0.150000000000", vega: "0.210000000000", source: "mock", source_timestamp: "2026-08-28T20:00:00Z", retrieved_at: "2026-08-28T20:00:00Z", status: "FROZEN" },
+    { ticker: "NVDA", expiration: "2026-09-18", strike: "175.0000000000", option_type: "PUT", bid: "3.1500000000", ask: "3.3000000000", volume: 780, open_interest: 6100, implied_volatility: "0.450000000000", delta: "-0.360000000000", gamma: "0.012000000000", theta: "-0.130000000000", vega: "0.200000000000", source: "mock", source_timestamp: "2026-08-28T20:00:00Z", retrieved_at: "2026-08-28T20:00:00Z", status: "FROZEN" },
+    { ticker: "NVDA", expiration: "2026-09-18", strike: "185.0000000000", option_type: "CALL", bid: "3.7500000000", ask: "3.9000000000", volume: 960, open_interest: 7200, implied_volatility: "0.460000000000", delta: "0.420000000000", gamma: "0.013000000000", theta: "-0.140000000000", vega: "0.220000000000", source: "mock", source_timestamp: "2026-08-28T20:00:00Z", retrieved_at: "2026-08-28T20:00:00Z", status: "FROZEN" },
+    { ticker: "NVDA", expiration: "2026-09-18", strike: "185.0000000000", option_type: "PUT", bid: "7.7500000000", ask: "7.9500000000", volume: 650, open_interest: 5900, implied_volatility: "0.470000000000", delta: "-0.580000000000", gamma: "0.013000000000", theta: "-0.160000000000", vega: "0.210000000000", source: "mock", source_timestamp: "2026-08-28T20:00:00Z", retrieved_at: "2026-08-28T20:00:00Z", status: "FROZEN" },
+    { ticker: "NVDA", expiration: "2026-10-16", strike: "175.0000000000", option_type: "CALL", bid: "11.2000000000", ask: "11.4500000000", volume: 540, open_interest: 4300, implied_volatility: "0.455000000000", delta: "0.630000000000", gamma: "0.009000000000", theta: "-0.110000000000", vega: "0.320000000000", source: "mock", source_timestamp: "2026-08-28T20:00:00Z", retrieved_at: "2026-08-28T20:00:00Z", status: "FROZEN" },
+    { ticker: "NVDA", expiration: "2026-10-16", strike: "175.0000000000", option_type: "PUT", bid: "5.7000000000", ask: "5.9500000000", volume: 430, open_interest: 3900, implied_volatility: "0.465000000000", delta: "-0.370000000000", gamma: "0.009000000000", theta: "-0.100000000000", vega: "0.310000000000", source: "mock", source_timestamp: "2026-08-28T20:00:00Z", retrieved_at: "2026-08-28T20:00:00Z", status: "FROZEN" },
+    { ticker: "NVDA", expiration: "2026-10-16", strike: "185.0000000000", option_type: "CALL", bid: "6.1000000000", ask: "6.3500000000", volume: 480, open_interest: 4100, implied_volatility: "0.475000000000", delta: "0.450000000000", gamma: "0.010000000000", theta: "-0.120000000000", vega: "0.330000000000", source: "mock", source_timestamp: "2026-08-28T20:00:00Z", retrieved_at: "2026-08-28T20:00:00Z", status: "FROZEN" },
+    { ticker: "NVDA", expiration: "2026-10-16", strike: "185.0000000000", option_type: "PUT", bid: "9.9500000000", ask: "10.2000000000", volume: 390, open_interest: 3600, implied_volatility: "0.485000000000", delta: "-0.550000000000", gamma: "0.010000000000", theta: "-0.130000000000", vega: "0.320000000000", source: "mock", source_timestamp: "2026-08-28T20:00:00Z", retrieved_at: "2026-08-28T20:00:00Z", status: "FROZEN" },
   ],
   created_at: "2026-08-28T20:00:00Z",
 } as const;

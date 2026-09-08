@@ -1,5 +1,6 @@
 import Plot from "react-plotly.js";
 import type { MarketSnapshot, NumericValue } from "../../api/market";
+import { formatStrike } from "./formatNumeric";
 
 interface LiquidityChartProps {
   options: MarketSnapshot["options"];
@@ -29,7 +30,7 @@ export function liquidityByStrike(options: MarketSnapshot["options"]): StrikeLiq
 
 export function LiquidityChart({ options }: LiquidityChartProps) {
   const rows = liquidityByStrike(options);
-  const strikes = rows.map((row) => String(row.strike));
+  const strikes = rows.map((row) => formatStrike(row.strike));
 
   return (
     <section className="liquidity-section" aria-labelledby="liquidity-heading">
@@ -67,7 +68,7 @@ export function LiquidityChart({ options }: LiquidityChartProps) {
           </thead>
           <tbody>
             {rows.map((row) => (
-              <tr key={String(row.strike)}><th scope="row">{row.strike}</th><td>{row.calls.toLocaleString()}</td><td>{row.puts.toLocaleString()}</td></tr>
+              <tr key={String(row.strike)}><th scope="row">{formatStrike(row.strike)}</th><td>{row.calls.toLocaleString()}</td><td>{row.puts.toLocaleString()}</td></tr>
             ))}
           </tbody>
         </table>

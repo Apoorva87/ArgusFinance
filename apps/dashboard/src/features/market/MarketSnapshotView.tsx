@@ -1,5 +1,6 @@
 import type { MarketSnapshot } from "../../api/market";
 import { ExpirationTimeline } from "./ExpirationTimeline";
+import { formatPrice } from "./formatNumeric";
 import { LiquidityChart } from "./LiquidityChart";
 
 interface MarketSnapshotViewProps {
@@ -43,7 +44,7 @@ export function MarketSnapshotView({ snapshot }: MarketSnapshotViewProps) {
       <section className="snapshot-identification" aria-labelledby="ticker-heading">
         <div>
           <h1 id="ticker-heading">{underlying.ticker}</h1>
-          <p className="spot">${underlying.price}</p>
+          <p className="spot">${formatPrice(underlying.price)}</p>
         </div>
         <p className="snapshot-id">Snapshot {snapshot.snapshot_id.slice(0, 8)}…</p>
       </section>

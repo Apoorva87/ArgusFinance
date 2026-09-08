@@ -23,6 +23,8 @@ describe("MarketSnapshotView", () => {
     expect(screen.getByRole("heading", { name: "Liquidity by strike" })).toBeInTheDocument();
     expect(screen.getByTestId("liquidity-plot")).toBeInTheDocument();
     expect(screen.getByRole("table", { name: "Open interest by strike" })).toBeInTheDocument();
+    expect(screen.getByRole("rowheader", { name: "175" })).toBeInTheDocument();
+    expect(screen.getByRole("rowheader", { name: "185" })).toBeInTheDocument();
   });
 
   it("warns when data is delayed or frozen", () => {
