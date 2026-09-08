@@ -11,15 +11,15 @@ fixture-provenance, and idempotent-capture fixes recorded below.
 
 | Item | Result |
 | --- | --- |
-| Python test count, zero failures | `uv run pytest -q` — **84 passed** in 1.87s, exit 0 |
+| Python test count, zero failures | `uv run pytest -q` — **85 passed** in 1.70s, exit 0 |
 | Frontend test count, zero failures | `npm test --prefix apps/dashboard -- --run` — **16 passed**, 5 files |
 | Ruff exit status | `uv run ruff check src tests scripts migrations` — `All checks passed!`, exit 0 |
 | mypy exit status | `uv run mypy src/argusfinance` — no issues in 26 source files, exit 0 |
 | Vite build exit status | `npm run build --prefix apps/dashboard` — exit 0 |
 | Shared NVDA snapshot ID | `00000000-0000-0000-0000-000000000001` through API, CLI, and MCP |
 | Dashboard screenshot | `dashboard-nvda-snapshot.png` (this directory) |
-| `git status --short --branch` clean | clean after this implementation commit; 1 commit ahead of `origin/feat/foundation-nvda-slice` (2 ahead of `origin/main`) |
-| Remote URL and push | `https://github.com/Apoorva87/ArgusFinance.git`; this follow-up is committed locally (not pushed) |
+| `git status --short --branch` clean | clean; 0 commits ahead of `origin/feat/foundation-nvda-slice` (2 ahead of `origin/main`) |
+| Remote URL and push | `https://github.com/Apoorva87/ArgusFinance.git`; contract-alignment commit `de469de` is pushed to `origin/feat/foundation-nvda-slice` |
 
 ## Shared snapshot identity
 
@@ -31,7 +31,8 @@ state directory and one SQLite database:
 - CLI: `uv run argusfinance market snapshot NVDA --weeks 8` returned the same ID.
 - MCP: `MarketMcpTools` latest returned the same ID.
 - Dashboard: rendered `SNAPSHOT 00000000…` from the same API response, proxied
-  through Vite to `127.0.0.1:8765`.
+  through Vite to `127.0.0.1:8765`. The `make run` target resolves the same
+  `.env`/`ARGUS_API_PORT` setting through `Settings().api_port`.
 
 `tests/e2e/test_nvda_vertical_slice.py` enforces this identity — 12 passed.
 Its fixture now applies migrations, so it exercises the documented setup path.
@@ -158,5 +159,5 @@ Verified on a pristine database, in the order the README documents:
 | `argusfinance market latest NVDA` | same snapshot ID |
 | tables | `alembic_version`, `market_snapshot_metadata` |
 
-Gates after the fix: pytest 84 passed exit 0; Ruff exit 0; mypy 26 files exit 0;
+Gates after the fix: pytest 85 passed exit 0; Ruff exit 0; mypy 26 files exit 0;
 Vitest 16 passed exit 0; Vite build exit 0 with the known Plotly chunk advisory.
