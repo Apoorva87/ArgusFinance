@@ -1,8 +1,14 @@
-.PHONY: install migrate dev test lint typecheck dashboard-test dashboard-build quality run
+.PHONY: install install-skills migrate dev test lint typecheck dashboard-test dashboard-build quality run
 
-install:
+install: install-skills
 	uv sync --locked
 	npm ci --prefix apps/dashboard
+
+# skills/ is the single source of truth. Codex reads it through
+# .codex-plugin/plugin.json; Claude Code reads it through .claude/skills/.
+install-skills:
+	mkdir -p .claude/skills
+	ln -sfn ../../skills/evaluate-ticker .claude/skills/evaluate-ticker
 
 migrate:
 	uv run alembic upgrade head
