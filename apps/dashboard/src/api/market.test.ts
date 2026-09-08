@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchLatestSnapshot } from "./market";
+import { captureSnapshot, fetchLatestSnapshot } from "./market";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -23,5 +23,13 @@ describe("fetchLatestSnapshot", () => {
       status: 404,
       detail: "No latest market snapshot found",
     });
+  });
+
+  it("captures the deterministic snapshot through an explicit POST action", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ snapshot_id: "snapshot-1" }), { status: 201 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(captureSnapshot(" nvda ")).resolves.toEqual({ snapshot_id: "snapshot-1" });
+    expect(fetchMock).toHaveBeenCalledWith("/api/market/NVDA/snapshots?weeks=8", { method: "POST", signal: undefined });
   });
 });

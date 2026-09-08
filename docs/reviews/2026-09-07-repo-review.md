@@ -66,3 +66,28 @@ remain deferred beyond this slice.
 - Parquet and SQLite are still separate persistence systems; the per-UUID lock
   and compensation make the current local capture workflow coherent, not a
   general cross-database transaction protocol.
+
+## Recommended priorities and cuts
+
+1. Finish a trustworthy evaluate/save/reopen loop before expanding agent
+   orchestration. The existing fixed-role definitions and checked-in playbooks
+   are a suitable starting point, but do not yet constitute the analytical
+   workflow described in Phase 4. Reusable memory means loading reviewed lessons
+   on each invocation, not relying on an immortal agent process. Keep lesson
+   promotion explicitly reviewed rather than automatically accumulating advice.
+2. Make read-only IBKR snapshot capture the next data milestone. A polished
+   analysis of a frozen NVDA fixture is still a demonstration, not a current
+   market decision tool. Preserve mock/replay as regression evidence and make
+   source, age, permissions, and missing fields visible in the live adapter.
+3. Keep expiration payoff distinct from pre-expiration estimates. The former is
+   exact intrinsic-value arithmetic; the latter needs an explicit pricing
+   adapter and tested exercise/dividend assumptions. Do not label quoted-Greek
+   aggregation as a pricing model or structural validity as a recommendation.
+4. Defer generalized backtesting, extra services, autonomous agent loops, and
+   a clone of OptionStrat. None is necessary to prove this first local workflow.
+   Retain OptionStrat as an optional, explicit visual handoff once saved strategy
+   inputs and provenance are reliable.
+5. Keep saved research records separate from positions. Status labels and
+   written review boundaries do not establish fills, current P&L, monitoring,
+   or adjustment recommendations. Those need refreshed evidence and the Phase 3
+   lifecycle, with explicit comparisons to the immutable entry evaluation.

@@ -69,3 +69,14 @@ export async function fetchLatestSnapshot(ticker: string, signal?: AbortSignal):
   }
   return (await response.json()) as MarketSnapshot;
 }
+
+export async function captureSnapshot(ticker: string, signal?: AbortSignal): Promise<MarketSnapshot> {
+  const normalized = encodeURIComponent(ticker.trim().toUpperCase());
+  const response = await fetch(`/api/market/${normalized}/snapshots?weeks=8`, { method: "POST", signal });
+  if (!response.ok) {
+    let payload: unknown;
+    try { payload = await response.json(); } catch { payload = undefined; }
+    throw new MarketApiError(response.status, errorDetail(payload));
+  }
+  return (await response.json()) as MarketSnapshot;
+}
