@@ -76,6 +76,27 @@ def test_write_uses_exact_explicit_parquet_schema(
     ]
 
 
+def test_parquet_snapshot_round_trip_preserves_unavailable_greeks(
+    snapshot_store: SnapshotStore, snapshot  # type: ignore[no-untyped-def]
+) -> None:
+    option = snapshot.options[0].model_copy(
+        update={"delta": None, "gamma": None, "theta": None, "vega": None}
+    )
+    unavailable = snapshot.model_copy(update={"options": (option, *snapshot.options[1:])})
+
+    path = snapshot_store.write(unavailable)
+
+    schema = pq.read_schema(path)
+    assert schema.field("option_delta").nullable
+    assert schema.field("option_gamma").nullable
+    assert schema.field("option_theta").nullable
+    assert schema.field("option_vega").nullable
+    assert snapshot_store.read(unavailable.snapshot_id).options[0].delta is None
+    assert snapshot_store.read(unavailable.snapshot_id).options[0].gamma is None
+    assert snapshot_store.read(unavailable.snapshot_id).options[0].theta is None
+    assert snapshot_store.read(unavailable.snapshot_id).options[0].vega is None
+
+
 def test_read_returns_options_in_canonical_order(
     snapshot_store: SnapshotStore, snapshot  # type: ignore[no-untyped-def]
 ) -> None:

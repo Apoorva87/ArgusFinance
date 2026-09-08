@@ -127,3 +127,21 @@ def test_capture_preserves_preexisting_parquet_when_metadata_persistence_fails(
 
     assert preexisting_path.exists()
     assert snapshot_store.read(snapshot.snapshot_id) == snapshot
+
+
+def test_repeated_capture_returns_persisted_snapshot_without_duplicate_metadata_error(
+    snapshot_store: SnapshotStore, metadata_repository: SnapshotMetadataRepository
+) -> None:
+    provider = CountingProvider()
+    service = MarketService(provider, snapshot_store, metadata_repository)
+
+    first = service.capture("NVDA")
+    parquet_path = snapshot_store.write(first)
+    before = parquet_path.read_bytes()
+
+    second = service.capture("NVDA")
+
+    assert second == first
+    assert provider.calls == 2
+    assert parquet_path.read_bytes() == before
+    assert metadata_repository.get(str(first.snapshot_id)) is not None

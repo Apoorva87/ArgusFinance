@@ -1,5 +1,7 @@
 .PHONY: install migrate dev test lint typecheck dashboard-test dashboard-build quality run
 
+ARGUS_API_PORT ?= 8765
+
 install:
 	uv sync --locked
 	npm ci --prefix apps/dashboard
@@ -29,4 +31,4 @@ dashboard-build:
 quality: lint typecheck dashboard-test dashboard-build
 
 run:
-	uv run uvicorn argusfinance.api.app:app --host 127.0.0.1 --port 8765
+	uv run uvicorn argusfinance.api.app:app --host 127.0.0.1 --port $(ARGUS_API_PORT)

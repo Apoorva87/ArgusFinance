@@ -5,6 +5,7 @@ from pathlib import Path
 from argusfinance.domain.market import MarketSnapshot
 from argusfinance.ports.market_data import MarketDataProvider
 from argusfinance.storage.repositories import (
+    DuplicateSnapshotError,
     SnapshotMetadata,
     SnapshotMetadataRepository,
 )
@@ -52,6 +53,11 @@ class MarketService:
         )
         try:
             self._metadata_repository.add(metadata)
+        except DuplicateSnapshotError:
+            # The provider may deterministically replay an immutable snapshot.
+            # Metadata already points at the same UUID; return its persisted
+            # content without replacing or mutating either record.
+            return self._snapshot_store.read(snapshot.snapshot_id)
         except Exception:
             if not existed_before_write:
                 self._snapshot_store.delete(snapshot.snapshot_id)

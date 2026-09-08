@@ -4,22 +4,22 @@ Captures the evidence required by the "Completion evidence" section of
 `docs/superpowers/plans/2026-08-30-foundation-nvda-slice.md`, plus the design
 specification review that gates Phase 2.
 
-Verified on `feat/foundation-nvda-slice` after the schema-ownership fix
-recorded below.
+Verified on `feat/foundation-nvda-slice` after the replay, nullable-Greeks,
+fixture-provenance, and idempotent-capture fixes recorded below.
 
 ## Required evidence
 
 | Item | Result |
 | --- | --- |
-| Python test count, zero failures | `uv run pytest -q` — **78 passed** in 1.61s, exit 0 |
-| Frontend test count, zero failures | `npm test --prefix apps/dashboard -- --run` — **8 passed**, 3 files |
+| Python test count, zero failures | `uv run pytest -q` — **84 passed** in 1.87s, exit 0 |
+| Frontend test count, zero failures | `npm test --prefix apps/dashboard -- --run` — **16 passed**, 5 files |
 | Ruff exit status | `uv run ruff check src tests scripts migrations` — `All checks passed!`, exit 0 |
-| mypy exit status | `uv run mypy src/argusfinance` — no issues in 25 source files, exit 0 |
+| mypy exit status | `uv run mypy src/argusfinance` — no issues in 26 source files, exit 0 |
 | Vite build exit status | `npm run build --prefix apps/dashboard` — exit 0 |
 | Shared NVDA snapshot ID | `00000000-0000-0000-0000-000000000001` through API, CLI, and MCP |
 | Dashboard screenshot | `dashboard-nvda-snapshot.png` (this directory) |
-| `git status --short --branch` clean | clean; 0 commits ahead of `origin/feat/foundation-nvda-slice` |
-| Remote URL and push | `https://github.com/Apoorva87/ArgusFinance.git`; all 36 plan commits pushed |
+| `git status --short --branch` clean | clean after this implementation commit; 1 commit ahead of `origin/feat/foundation-nvda-slice` (2 ahead of `origin/main`) |
+| Remote URL and push | `https://github.com/Apoorva87/ArgusFinance.git`; this follow-up is committed locally (not pushed) |
 
 ## Shared snapshot identity
 
@@ -35,6 +35,24 @@ state directory and one SQLite database:
 
 `tests/e2e/test_nvda_vertical_slice.py` enforces this identity — 12 passed.
 Its fixture now applies migrations, so it exercises the documented setup path.
+
+The dashboard test fixture imports the canonical
+`src/argusfinance/adapters/fixtures/nvda_snapshot.json` directly. The
+`canonical NVDA dashboard fixture` Vitest test fails if a second manually
+maintained value set drifts from that source, keeping browser-facing test data
+and backend replay data on one file.
+
+`ReplayMarketDataProvider` accepts an injected JSON path, normalizes it through
+the `MarketSnapshot` domain contract, validates ticker and `weeks=8`, reports
+`connected: false`, and has no network or broker dependency.
+
+Option Greek fields are nullable throughout the Pydantic domain object and
+Parquet schema. The dashboard preserves null values and shows an explicit
+“Greeks unavailable” marker when any Greek is unavailable.
+
+Repeated capture of the same deterministic immutable snapshot returns the
+persisted snapshot and leaves its Parquet bytes unchanged; duplicate metadata
+is treated as successful idempotent replay.
 
 Storage was verified on disk as partitioned Parquet:
 `data/market/ticker=NVDA/date=2026-08-28/snapshot=00000000-0000-0000-0000-000000000001.parquet`.
@@ -57,6 +75,10 @@ served by the local API. It shows all four required elements:
 
 Browser console during capture contained one 404 for `/favicon.ico` and no
 application errors.
+
+The Vite build still emits its known Plotly chunk-size advisory (about 4.3 MB
+uncompressed, 1.3 MB gzip); code splitting remains deferred for this local
+foundation slice and does not affect behavior.
 
 This closes the gap recorded in the Task 8 ledger entry, where screenshot QA was
 unavailable because no browser instance was connected.
@@ -136,5 +158,5 @@ Verified on a pristine database, in the order the README documents:
 | `argusfinance market latest NVDA` | same snapshot ID |
 | tables | `alembic_version`, `market_snapshot_metadata` |
 
-Gates after the fix: pytest 78 passed exit 0; Ruff exit 0; mypy 25 files exit 0;
-Vitest 8 passed exit 0; Vite build exit 0. Test output is warning-free.
+Gates after the fix: pytest 84 passed exit 0; Ruff exit 0; mypy 26 files exit 0;
+Vitest 16 passed exit 0; Vite build exit 0 with the known Plotly chunk advisory.

@@ -62,10 +62,10 @@ class OptionQuote(_MarketValue):
     volume: int = Field(ge=0)
     open_interest: int = Field(ge=0)
     implied_volatility: Decimal = Field(ge=0)
-    delta: Decimal
-    gamma: Decimal
-    theta: Decimal
-    vega: Decimal
+    delta: Decimal | None = None
+    gamma: Decimal | None = None
+    theta: Decimal | None = None
+    vega: Decimal | None = None
     source: str = Field(min_length=1)
     source_timestamp: datetime
     retrieved_at: datetime

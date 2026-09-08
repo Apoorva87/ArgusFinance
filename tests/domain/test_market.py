@@ -111,6 +111,19 @@ def test_option_quote_rejects_ask_below_bid() -> None:
         _option_quote(observed, bid=Decimal("4.00"), ask=Decimal("3.99"))
 
 
+def test_option_quote_accepts_unavailable_greeks() -> None:
+    observed = datetime(2026, 8, 28, 20, 0, tzinfo=UTC)
+
+    option = _option_quote(observed).model_copy(
+        update={"delta": None, "gamma": None, "theta": None, "vega": None}
+    )
+
+    assert option.delta is None
+    assert option.gamma is None
+    assert option.theta is None
+    assert option.vega is None
+
+
 def _option_quote(
     observed: datetime,
     *,

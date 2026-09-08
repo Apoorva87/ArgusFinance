@@ -28,6 +28,18 @@ Capture the deterministic eight-week NVDA fixture from the command line:
 uv run argusfinance market snapshot NVDA --weeks 8
 ```
 
+For offline replay in tests or local tooling, inject a JSON path into
+`ReplayMarketDataProvider`. It validates the requested ticker and the
+eight-week horizon, returns the normalized `MarketSnapshot` contract, and
+never contacts a broker or network:
+
+```python
+from argusfinance.adapters import ReplayMarketDataProvider
+
+provider = ReplayMarketDataProvider("path/to/snapshot.json")
+snapshot = provider.get_snapshot("NVDA", weeks=8)
+```
+
 Then start both foreground development processes:
 
 ```bash
@@ -74,8 +86,9 @@ action.
 
 ## Current limitations
 
-- Foundation market data is the deterministic NVDA fixture; other tickers are
-  rejected.
+- Foundation market data is the deterministic NVDA fixture. The mock provider
+  loads the packaged fixture, while `ReplayMarketDataProvider` supports an
+  injected local JSON path for offline replay.
 - IBKR is diagnostic-handshake only. IBKR capture is not implemented.
 - The dashboard and API run locally; there is no hosted ArgusFinance service.
 - Paper and live order staging and placement are not implemented or permitted.
