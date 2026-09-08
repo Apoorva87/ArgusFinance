@@ -8,7 +8,7 @@ from sqlalchemy import create_engine, inspect, text
 from argusfinance.bootstrap import build_container
 from argusfinance.config import Settings
 
-_HEAD_REVISION = "0001_snapshot_metadata"
+_HEAD_REVISION = "0002_saved_strategies"
 
 
 def _stamped_revisions(database_url: str) -> list[str]:
@@ -40,7 +40,9 @@ def test_migrations_create_the_metadata_table_the_repository_uses(
 
     apply_migrations(database_url)
 
-    assert "market_snapshot_metadata" in inspect(create_engine(database_url)).get_table_names()
+    assert {"market_snapshot_metadata", "saved_strategies", "strategy_events"} <= set(
+        inspect(create_engine(database_url)).get_table_names()
+    )
 
 
 def test_migrations_use_database_url_from_dotenv(

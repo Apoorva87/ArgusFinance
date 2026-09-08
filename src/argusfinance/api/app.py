@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 
 from argusfinance.api.routes.market import router as market_router
+from argusfinance.api.routes.strategies import router as strategies_router
 from argusfinance.bootstrap import Container, build_container
 from argusfinance.config import Settings, get_settings
 
@@ -16,6 +17,7 @@ def create_app(settings: Settings | None = None, container: Container | None = N
         return {"service": "argusfinance", "status": "ok", "mode": "local"}
 
     app.include_router(market_router)
+    app.include_router(strategies_router)
     return app
 
 

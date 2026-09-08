@@ -8,7 +8,11 @@ import pytest
 
 from argusfinance.adapters.mock_market import MockMarketDataProvider
 from argusfinance.domain.market import MarketSnapshot
-from argusfinance.mcp_server import MarketMcpTools, build_mcp_server, main
+from argusfinance.mcp_server import (
+    MarketMcpTools,
+    build_mcp_server,
+    main,
+)
 
 
 class RecordingMarketService:
@@ -80,6 +84,18 @@ def test_build_mcp_server_registers_only_public_market_tools(snapshot: MarketSna
     }
 
 
+def test_build_mcp_server_adds_four_strategy_tools_when_service_is_supplied(snapshot: MarketSnapshot) -> None:
+    """Omitting any public strategy tool from a composed MCP server breaks discovery."""
+    server = build_mcp_server(RecordingMarketService(snapshot), object())
+
+    registered_tools = asyncio.run(server.list_tools())
+
+    assert {tool.name for tool in registered_tools} == {
+        "capture_market_snapshot", "get_latest_market_snapshot",
+        "evaluate_strategy", "save_strategy", "list_strategies", "get_strategy",
+    }
+
+
 def test_main_builds_fresh_service_and_starts_stdio(monkeypatch) -> None:
     class FakeSettings:
         pass
@@ -97,10 +113,11 @@ def test_main_builds_fresh_service_and_starts_stdio(monkeypatch) -> None:
 
     def fake_build_container(settings: FakeSettings) -> SimpleNamespace:
         observed_settings.append(settings)
-        return SimpleNamespace(market_service=service)
+        return SimpleNamespace(market_service=service, strategy_service=service)
 
-    def fake_build_mcp_server(received_service: object) -> FakeServer:
+    def fake_build_mcp_server(received_service: object, received_strategy_service: object) -> FakeServer:
         assert received_service is service
+        assert received_strategy_service is service
         return server
 
     monkeypatch.setattr("argusfinance.mcp_server.Settings", FakeSettings)

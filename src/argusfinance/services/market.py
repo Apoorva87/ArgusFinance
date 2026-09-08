@@ -1,6 +1,7 @@
 """Application workflow for immutable market snapshots."""
 
 from pathlib import Path
+from uuid import UUID
 
 from argusfinance.domain.market import MarketSnapshot
 from argusfinance.ports.market_data import MarketDataProvider
@@ -75,6 +76,15 @@ class MarketService:
             return self._snapshot_store.read(metadata.snapshot_id)
         except SnapshotNotFoundError as error:
             raise LatestSnapshotNotFoundError("No latest market snapshot found") from error
+
+    def get(self, snapshot_id: str | UUID) -> MarketSnapshot:
+        """Read one persisted immutable snapshot by its public identifier."""
+        if self._metadata_repository.get(str(snapshot_id)) is None:
+            raise LatestSnapshotNotFoundError("Market snapshot was not found")
+        try:
+            return self._snapshot_store.read(snapshot_id)
+        except SnapshotNotFoundError as error:
+            raise LatestSnapshotNotFoundError("Market snapshot was not found") from error
 
     def _snapshot_exists(self, snapshot: MarketSnapshot) -> bool:
         try:

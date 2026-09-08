@@ -1,12 +1,15 @@
 """Local STDIO MCP tools backed by the shared market application service."""
 
 from typing import cast
+from uuid import UUID
 
 from mcp.server.mcpserver import MCPServer
 
 from argusfinance.bootstrap import build_container
 from argusfinance.config import Settings
+from argusfinance.domain.strategy import StrategyDraft
 from argusfinance.services.market import MarketService
+from argusfinance.services.strategies import StrategyService
 
 
 class MarketMcpTools:
@@ -27,8 +30,29 @@ class MarketMcpTools:
         return cast(dict[str, object], self._service.latest(ticker).model_dump(mode="json"))
 
 
-def build_mcp_server(service: MarketService) -> MCPServer[object]:
-    """Register the local market service as the two public MCP tools."""
+class StrategyMcpTools:
+    """JSON-safe strategy operations using the API/CLI service contract."""
+
+    def __init__(self, service: StrategyService) -> None:
+        self._service = service
+
+    def evaluate_strategy(self, draft: dict[str, object]) -> dict[str, object]:
+        return cast(dict[str, object], self._service.evaluate(StrategyDraft.model_validate(draft)).model_dump(mode="json"))
+
+    def save_strategy(self, draft: dict[str, object]) -> dict[str, object]:
+        return cast(dict[str, object], self._service.save(StrategyDraft.model_validate(draft)).model_dump(mode="json"))
+
+    def list_strategies(self) -> list[dict[str, object]]:
+        return [cast(dict[str, object], saved.model_dump(mode="json")) for saved in self._service.list()]
+
+    def get_strategy(self, strategy_id: str) -> dict[str, object]:
+        return cast(dict[str, object], self._service.get(UUID(strategy_id)).model_dump(mode="json"))
+
+
+def build_mcp_server(
+    service: MarketService, strategy_service: StrategyService | None = None
+) -> MCPServer[object]:
+    """Register market tools and additive strategy tools for a composed container."""
     server = MCPServer(name="ArgusFinance")
     tools = MarketMcpTools(service)
 
@@ -40,11 +64,31 @@ def build_mcp_server(service: MarketService) -> MCPServer[object]:
     def get_latest_market_snapshot(ticker: str) -> dict[str, object]:
         return tools.get_latest_market_snapshot(ticker)
 
+    if strategy_service is not None:
+        strategy_tools = StrategyMcpTools(strategy_service)
+
+        @server.tool(name="evaluate_strategy")
+        def evaluate_strategy(draft: dict[str, object]) -> dict[str, object]:
+            return strategy_tools.evaluate_strategy(draft)
+
+        @server.tool(name="save_strategy")
+        def save_strategy(draft: dict[str, object]) -> dict[str, object]:
+            return strategy_tools.save_strategy(draft)
+
+        @server.tool(name="list_strategies")
+        def list_strategies() -> list[dict[str, object]]:
+            return strategy_tools.list_strategies()
+
+        @server.tool(name="get_strategy")
+        def get_strategy(strategy_id: str) -> dict[str, object]:
+            return strategy_tools.get_strategy(strategy_id)
+
     return server
 
 
 def main() -> None:
     """Start the local MCP server on a clean STDIO transport."""
     settings = Settings()
-    server = build_mcp_server(build_container(settings).market_service)
+    container = build_container(settings)
+    server = build_mcp_server(container.market_service, container.strategy_service)
     server.run(transport="stdio")
