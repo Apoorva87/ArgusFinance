@@ -56,6 +56,20 @@ terminates and reaps its sibling.
 
 ## Agent clients
 
+Run `make install-agents` after cloning on another machine (Python 3.12+).
+This validates all six project-local Codex roles and their playbooks, then
+installs the Claude Code skill link. `make install` runs this step automatically;
+`make quality` checks the same roster. No user-global agent configuration is
+needed. Open Codex from the repository and trust it when prompted, then start a
+new session to load the project roles. Claude Code shares the workflow skill;
+the `.codex/agents/*.toml` files are Codex-specific role definitions.
+
+Role `config_file` paths resolve relative to `.codex/config.toml`, so they use
+`agents/<role>.toml`, not `.codex/agents/<role>.toml`. The validator checks the
+resolved files, required role fields, playbooks, and research authority limits.
+Use `make validate-agents` to check without installing links. This follows the
+[Codex configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference).
+
 `skills/` is the single source of truth for the `evaluate-ticker` workflow. Two
 clients discover it by different conventions, so `make install-skills` links the
 one directory into the location Claude Code expects:
