@@ -54,6 +54,26 @@ The launcher prints and serves these local URLs:
 Press Ctrl-C to stop both processes. If either process exits, the launcher
 terminates and reaps its sibling.
 
+## Agent clients
+
+`skills/` is the single source of truth for the `evaluate-ticker` workflow. Two
+clients discover it by different conventions, so `make install-skills` links the
+one directory into the location Claude Code expects:
+
+- **Codex** reads `skills/` directly through `.codex-plugin/plugin.json`, along
+  with the six roles in `.codex/config.toml`.
+- **Claude Code** reads `.claude/skills/`, which `make install-skills` points at
+  `skills/` with a relative symlink. Restart the session to pick up a newly
+  linked skill.
+
+Both clients read the MCP server from `.mcp.json`, which exposes
+`capture_market_snapshot` and `get_latest_market_snapshot` over stdio.
+
+The workflow's analytical roles (`company_analyst`, `market_options_analyst`,
+`historical_evidence_analyst`, `strategy_analyst`, `risk_critic`) are versioned
+playbooks under `agents/`. They are role definitions, not running code; the
+orchestration that dispatches them is Phase 2 and later work.
+
 ## Verification
 
 Run all Python and dashboard tests:

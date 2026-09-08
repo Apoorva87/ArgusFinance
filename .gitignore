@@ -31,6 +31,9 @@ db/*.sqlite*
 .coverage
 coverage/
 
+# Agent client local settings (the skills symlink is tracked)
+.claude/settings.local.json
+
 # Editors and operating systems
 .DS_Store
 .idea/
