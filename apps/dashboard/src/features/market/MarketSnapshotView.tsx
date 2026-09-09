@@ -49,13 +49,18 @@ function optionRetrieval(options: readonly OptionQuote[]): string {
 export function MarketSnapshotView({ snapshot }: MarketSnapshotViewProps) {
   const { underlying } = snapshot;
   const underlyingCaution = ["DELAYED", "FROZEN", "FROZEN_DELAYED"].includes(underlying.status);
-  const frozenOptions = snapshot.options.some((option) => ["FROZEN", "FROZEN_DELAYED"].includes(option.status));
+  const frozenOptionCount = snapshot.options.filter((option) => ["DELAYED", "FROZEN", "FROZEN_DELAYED"].includes(option.status)).length;
   const missingOptionTimes = snapshot.options.filter((option) => option.source_timestamp === null).length;
   const greeksUnavailable = snapshot.options.some((option) => [option.delta, option.gamma, option.theta, option.vega].some((greek) => greek === null));
   const optionStatuses = [...new Set(snapshot.options.map((option) => option.status))].join(", ");
   const cautions: string[] = [];
   if (underlyingCaution) cautions.push(`${underlying.status.toLowerCase().replace("_", "/")} underlying quote: source timestamp ${displayTimestamp(underlying.source_timestamp)}; retrieved ${displayTimestamp(underlying.retrieved_at)}.`);
-  if (frozenOptions) cautions.push(`Options are frozen/delayed while the underlying is ${underlying.status.toLowerCase()}. Treat option prices as saved historical evidence.`);
+  if (frozenOptionCount > 0) {
+    const affected = frozenOptionCount === snapshot.options.length ? `All ${frozenOptionCount}` : `${frozenOptionCount} of ${snapshot.options.length}`;
+    const noun = frozenOptionCount === 1 ? "option quote is" : "option quotes are";
+    const underlyingStatus = underlying.status.toLowerCase().replace("_", "/");
+    cautions.push(`${affected} ${noun} frozen/delayed; the underlying was reported ${underlyingStatus} when this snapshot was saved. Treat affected option prices as saved historical evidence.`);
+  }
   if (missingOptionTimes > 0) cautions.push(missingOptionTimes === snapshot.options.length
     ? "Option bid/ask source times are unavailable. Retrieval times show when these saved quotes were collected."
     : `${missingOptionTimes} option bid/ask source times are unavailable. Retrieval times show when those saved quotes were collected.`);

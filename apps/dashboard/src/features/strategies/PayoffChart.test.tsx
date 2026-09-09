@@ -4,12 +4,8 @@ import { describe, expect, it, vi } from "vitest";
 import type { StrategyEvaluation } from "../../api/strategies";
 import { PayoffChart } from "./PayoffChart";
 
-let capturedLayout: Record<string, unknown> = {};
 vi.mock("react-plotly.js", () => ({
-  default: (props: { layout: Record<string, unknown> }) => {
-    capturedLayout = props.layout;
-    return <div aria-label="Rendered payoff plot" />;
-  },
+  default: () => <div aria-label="Rendered payoff plot" />,
 }));
 
 const evaluation = {
@@ -20,11 +16,12 @@ const evaluation = {
 } as unknown as StrategyEvaluation;
 
 describe("PayoffChart", () => {
-  it("anchors vertical marker labels inside the visible plot", () => {
+  it("shows close payoff marker values in a readable list outside the plot", () => {
     render(<PayoffChart evaluation={evaluation} />);
 
     expect(screen.getByLabelText("Rendered payoff plot")).toBeInTheDocument();
-    const annotations = capturedLayout.annotations as Array<{ y: number; yanchor: string }>;
-    expect(annotations.every((annotation) => annotation.y <= 1 && annotation.yanchor === "top")).toBe(true);
+    const markers = screen.getByRole("list", { name: "Payoff markers" });
+    expect(markers).toHaveTextContent("Spot $180.25");
+    expect(markers).toHaveTextContent("Break-even $180.05");
   });
 });

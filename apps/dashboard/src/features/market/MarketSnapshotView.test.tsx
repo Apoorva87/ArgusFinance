@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { vi } from "vitest";
 import { MarketSnapshotView } from "./MarketSnapshotView";
@@ -70,7 +70,7 @@ describe("MarketSnapshotView", () => {
       />,
     );
 
-    expect(screen.getByText(/Options are frozen\/delayed while the underlying is realtime/i)).toBeInTheDocument();
+    expect(screen.getByText(/All 8 option quotes are frozen\/delayed; the underlying was reported realtime/i)).toBeInTheDocument();
     expect(screen.getByText(/Option bid\/ask source times are unavailable/i)).toBeInTheDocument();
     expect(screen.getByText("Attempted three standard expirations; two contained usable quotes.")).toBeInTheDocument();
     expect(screen.getByText("Snapshot age")).toBeInTheDocument();
@@ -78,20 +78,38 @@ describe("MarketSnapshotView", () => {
     expect(screen.getByText("Implied volatility")).toBeInTheDocument();
   });
 
+  it("reports the exact frozen option count for a mixed-status chain", () => {
+    render(
+      <MarketSnapshotView
+        snapshot={{
+          ...nvdaSnapshot,
+          underlying: { ...nvdaSnapshot.underlying, status: "REALTIME" },
+          options: nvdaSnapshot.options.map((option, index) => ({
+            ...option,
+            status: index < 3 ? "FROZEN_DELAYED" : "REALTIME",
+          })),
+        }}
+      />,
+    );
+
+    expect(screen.getByText(/3 of 8 option quotes are frozen\/delayed; the underlying was reported realtime/i)).toBeInTheDocument();
+    expect(screen.queryByText(/All 8 option quotes are frozen\/delayed/i)).not.toBeInTheDocument();
+  });
+
   it("labels liquidity totals partial and leaves wholly missing open interest unavailable", () => {
-    const options = nvdaSnapshot.options.slice(0, 3).map((option, index) => ({
-      ...option,
-      strike: index < 2 ? "175" : "185",
-      option_type: index === 1 ? "PUT" as const : "CALL" as const,
-      open_interest: index === 0 ? 120 : null,
-    }));
+    const option = nvdaSnapshot.options[0];
+    const options = [
+      { ...option, expiration: "2026-09-18", strike: "175", option_type: "CALL" as const, open_interest: 120 },
+      { ...option, expiration: "2026-10-16", strike: "175", option_type: "CALL" as const, open_interest: null },
+      { ...option, expiration: "2026-09-18", strike: "185", option_type: "CALL" as const, open_interest: null },
+    ];
 
     render(<MarketSnapshotView snapshot={{ ...nvdaSnapshot, options }} />);
 
-    const table = screen.getByRole("table", { name: "Open interest by strike" });
-    expect(table).toHaveTextContent("120");
-    expect(table).toHaveTextContent("partial");
-    expect(screen.getByRole("rowheader", { name: "185" }).parentElement).toHaveTextContent("Unavailable");
+    const partialRow = screen.getByRole("rowheader", { name: "175" }).parentElement;
+    const missingRow = screen.getByRole("rowheader", { name: "185" }).parentElement;
+    expect(within(partialRow!).getAllByRole("cell")[0]).toHaveTextContent(/^120 \(partial\)$/);
+    expect(within(missingRow!).getAllByRole("cell")[0]).toHaveTextContent(/^Unavailable$/);
     expect(screen.getByText(/Missing open interest is excluded/i)).toBeInTheDocument();
   });
 });

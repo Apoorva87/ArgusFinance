@@ -26,13 +26,14 @@ h1 { margin: 0; font-size: clamp(3rem, 10vw, 7rem); line-height: .78; }.spot { m
 
 /* Strategy workspace */
 .app-shell { min-height: 100vh; background: var(--ink); }
-.app-nav { position: sticky; z-index: 20; top: 0; display: flex; min-height: 3.4rem; align-items: stretch; justify-content: space-between; border-bottom: 1px solid #244359; background: rgb(7 19 31 / 96%); backdrop-filter: blur(12px); }
+.app-header { position: sticky; z-index: 20; top: 0; background: var(--ink); }
+.app-nav { display: flex; min-height: 3.4rem; align-items: stretch; justify-content: space-between; border-bottom: 1px solid #244359; background: rgb(7 19 31 / 96%); backdrop-filter: blur(12px); }
 .wordmark { display: flex; align-items: center; padding: 0 clamp(1rem, 3vw, 2.5rem); color: var(--cloud); font: 800 .78rem "Arial Narrow", "Avenir Next Condensed", sans-serif; letter-spacing: .16em; text-decoration: none; }
 .app-nav > div { display: flex; overflow-x: auto; }
 .app-nav button { position: relative; min-height: 3.4rem; padding: 0 clamp(.8rem, 2vw, 1.4rem); border: 0; background: transparent; color: var(--muted); font: 650 .78rem "Avenir Next", "Segoe UI", sans-serif; cursor: pointer; white-space: nowrap; }
 .app-nav button[aria-current="page"] { color: var(--cloud); }
 .app-nav button[aria-current="page"]::after { position: absolute; right: .8rem; bottom: -1px; left: .8rem; height: 2px; background: var(--signal); content: ""; }
-.market-controls { position: sticky; z-index: 19; top: 3.4rem; display: flex; align-items: stretch; justify-content: space-between; border-bottom: 1px solid #19364b; background: #0a1825; }
+.market-controls { display: flex; align-items: stretch; justify-content: space-between; border-bottom: 1px solid #19364b; background: #0a1825; }
 .ticker-selector { display: flex; min-width: 0; overflow-x: auto; padding-inline: clamp(.45rem, 2vw, 1.5rem); }
 .ticker-selector button, .reload-button { min-height: 2.9rem; border: 0; background: transparent; color: var(--muted); font: 700 .7rem "SFMono-Regular", Consolas, monospace; cursor: pointer; }
 .ticker-selector button { position: relative; padding: 0 clamp(.65rem, 1.5vw, 1.05rem); }
@@ -98,6 +99,10 @@ button:disabled { cursor: not-allowed; opacity: .42; }
 .strategy-results-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 27%); }
 .payoff-section { min-width: 0; padding: 1.2rem 1.2rem 0 0; }
 .payoff-section .plot-frame { overflow: hidden; }
+.payoff-markers { display: flex; flex-wrap: wrap; gap: .45rem 1rem; margin: .85rem 0 .6rem; padding: 0; list-style: none; color: var(--muted); font: .68rem "SFMono-Regular", Consolas, monospace; }
+.payoff-markers li { display: flex; align-items: center; gap: .45rem; white-space: nowrap; }
+.payoff-marker-swatch { height: 1rem; border-left: 1px dashed; }
+.payoff-markers + .plot-frame { margin-top: 0; }
 .risk-readout { padding: 1.2rem 0 0 1.2rem; border-left: 1px solid #19364b; }
 .risk-readout h2, .risk-readout h3 { margin: 0; color: var(--cloud); font: 700 .8rem "Arial Narrow", "Avenir Next Condensed", sans-serif; letter-spacing: .08em; text-transform: uppercase; }
 .risk-readout h3 { margin-top: 1.5rem; }
@@ -161,7 +166,7 @@ button:disabled { cursor: not-allowed; opacity: .42; }
   .wordmark { display: none; }
   .app-nav > div, .app-nav button { width: 100%; }
   .app-nav button { padding-inline: .55rem; font-size: .7rem; }
-  .market-controls { top: 6.8rem; align-items: stretch; flex-direction: column; }
+  .market-controls { align-items: stretch; flex-direction: column; }
   .ticker-selector { padding-inline: .25rem; }
   .ticker-selector button { flex: 1 0 auto; }
   .reload-button { min-height: 2.5rem; border-top: 1px solid #19364b; border-left: 0; }

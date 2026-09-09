@@ -127,5 +127,13 @@ export default function App() {
   else if (state.kind === "missing") content = <MissingMarket ticker={ticker} title={view === "lab" ? `Strategy Lab needs ${ticker} market evidence` : `No ${ticker} snapshot yet`} detail={state.detail} capturePhase={capturePhase} onCapture={ticker === "NVDA" ? () => void loadDemo() : undefined} />;
   else content = <main className="state-view"><h1>Market snapshot unavailable</h1><p>{state.detail}</p><p>Confirm the local API is running, then reload the saved snapshot.</p></main>;
 
-  return <div className="app-shell"><AppNav view={view} onChange={setView} />{view !== "saved" && <MarketControls ticker={ticker} loading={state.kind === "loading"} onSelect={selectTicker} onReload={reloadSnapshot} />}{content}</div>;
+  return (
+    <div className="app-shell">
+      <header className="app-header">
+        <AppNav view={view} onChange={setView} />
+        {view !== "saved" && <MarketControls ticker={ticker} loading={state.kind === "loading"} onSelect={selectTicker} onReload={reloadSnapshot} />}
+      </header>
+      {content}
+    </div>
+  );
 }
