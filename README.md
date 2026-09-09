@@ -125,6 +125,8 @@ a REALTIME underlying label does not make its options live. Connector IV is
 currently not imported because its units are unspecified. Missing or crossed
 bid/ask quotes are skipped and counted. Monetary values are rounded half-even
 to the existing ten-decimal storage precision to remove JSON float artifacts.
+Quoted Greeks, when supplied, use twelve decimal places; values outside the
+storage precision remain unavailable.
 Partial open-interest totals are labeled as partial.
 
 This capture-and-display mode does not run the full company, historical,
