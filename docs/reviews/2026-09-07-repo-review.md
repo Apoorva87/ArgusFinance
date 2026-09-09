@@ -48,12 +48,25 @@ is not a claim that Phase 2 is complete.
 - This prerequisite task adds no strategy analytics, UI, broker capture, fill
   simulation, monitoring, or order action.
 
-## Remaining Phase 2 slice
+## Strategy Lab delivery
 
-The next scoped work is the snapshot-backed Strategy Lab: deterministic
-expiration payoff and exact extrema/breakevens, quoted-Greek aggregation,
-immutable SQLite-backed saved evaluations, shared API/CLI/MCP interfaces, and a
-UI that can evaluate, save, and reopen the recorded evidence. Pre-expiration
+The backend now includes deterministic expiration payoff and exact
+extrema/breakevens, quoted-Greek aggregation, immutable SQLite-backed saved
+evaluations, and shared API/CLI/MCP interfaces. Review identified and corrected
+two additional defects: expired-at-snapshot selections were admitted, and
+selected option provenance was omitted when deriving frozen/stale warnings.
+Focused regressions cover both. A forced creation-event failure verifies
+transaction rollback, and migration round-trips preserve snapshot metadata.
+
+Project agent installation is also repaired. Role paths resolve from the
+declaring `.codex/config.toml`; they no longer incorrectly repeat `.codex/`.
+`make install-agents` validates all six project-local roles and installs the
+shared skill link. Installation and quality checks enforce the same validation,
+with relocated-checkout and repeat-install tests.
+
+The Strategy Lab UI implements evaluation, saving, and reopening recorded
+evidence. See the implementation plan for final verification and remaining
+visual acceptance limitations. Pre-expiration
 repricing/time-IV surfaces, model Greeks, calendars, richer eligibility and
 evidence, active monitoring, adjustments, fills, and entry/current comparisons
 remain deferred beyond this slice.

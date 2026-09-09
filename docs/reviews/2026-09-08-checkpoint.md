@@ -3,6 +3,11 @@
 Work paused at the user's request. This is a resumable checkpoint, not a
 completed Phase 2 release.
 
+Work subsequently resumed. The two agent-install commits are now integrated
+into `feat/phase2-strategy-lab` as `9bd7d3b` and `37f45c0`. The notes below record
+the original checkpoint; current delivery evidence is recorded in the strategy
+lab implementation plan.
+
 ## Branches
 
 - `feat/phase2-strategy-lab`: prerequisite audit fixes (`73c274d`), reviewed
