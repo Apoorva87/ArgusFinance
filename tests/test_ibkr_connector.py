@@ -3,11 +3,13 @@
 from copy import deepcopy
 from datetime import UTC, datetime
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 
 from argusfinance.adapters.ibkr_connector import normalize_ibkr_bundle
 from argusfinance.domain.market import MarketDataStatus
+from argusfinance.storage.snapshots import SnapshotStore
 
 
 def _raw_bundle() -> dict[str, object]:
@@ -203,3 +205,32 @@ def test_rounds_binary_float_artifacts_to_explicit_parquet_money_scale() -> None
 
     assert snapshot.underlying.price == Decimal("618.3000000000")
     assert snapshot.options[0].ask == Decimal("7.1000000000")
+
+
+def test_rounds_greek_artifacts_and_nulls_unrepresentable_values_before_storage(
+    tmp_path: Path,
+) -> None:
+    payload = _raw_bundle()
+    options = payload["options"]
+    assert isinstance(options, list)
+    first = options[0]
+    assert isinstance(first, dict)
+    response = first["response"]
+    assert isinstance(response, dict)
+    response["option-greeks"] = {
+        "delta": 0.5000000000000001,
+        "gamma": 0.0123456789014,
+        "theta": -0.1234567890125,
+        "vega": "1E+100",
+    }
+
+    snapshot = normalize_ibkr_bundle(payload)
+    quote = snapshot.options[0]
+
+    assert quote.delta == Decimal("0.500000000000")
+    assert quote.gamma == Decimal("0.012345678901")
+    assert quote.theta == Decimal("-0.123456789012")
+    assert quote.vega is None
+    store = SnapshotStore(tmp_path)
+    store.write(snapshot)
+    assert store.read(snapshot.snapshot_id) == snapshot

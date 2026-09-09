@@ -27,6 +27,7 @@ _OPTION_KEYS = {
     "retrieved_at",
 }
 _MONEY_QUANTUM = Decimal("0.0000000001")
+_GREEK_QUANTUM = Decimal("0.000000000001")
 
 
 def normalize_ibkr_bundle(payload: dict[str, object]) -> MarketSnapshot:
@@ -344,7 +345,18 @@ def _greeks(value: object) -> dict[str, Decimal | None]:
     fields = ("delta", "gamma", "theta", "vega")
     if not isinstance(value, Mapping):
         return {field: None for field in fields}
-    return {field: _optional_decimal(value.get(field)) for field in fields}
+    return {field: _stored_greek(value.get(field)) for field in fields}
+
+
+def _stored_greek(value: object) -> Decimal | None:
+    """Round a finite Greek to decimal128(28, 12), or preserve it as unknown."""
+    parsed = _optional_decimal(value)
+    if parsed is None:
+        return None
+    try:
+        return parsed.quantize(_GREEK_QUANTUM, rounding=ROUND_HALF_EVEN)
+    except InvalidOperation:
+        return None
 
 
 def _append_missing_note(notes: list[str], count: int, field: str) -> None:
