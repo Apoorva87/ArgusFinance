@@ -79,6 +79,16 @@ function errorDetail(payload: unknown): string {
   if (typeof payload === "object" && payload !== null && "detail" in payload) {
     const detail = payload.detail;
     if (typeof detail === "string") return detail;
+    if (Array.isArray(detail)) {
+      const messages = detail.flatMap((item) => {
+        if (typeof item !== "object" || item === null || !("msg" in item) || typeof item.msg !== "string") return [];
+        const location = "loc" in item && Array.isArray(item.loc)
+          ? item.loc.filter((part: unknown) => part !== "body").map(String).join(".")
+          : "Input";
+        return `${location || "Input"}: ${item.msg}`;
+      });
+      if (messages.length) return messages.join("; ");
+    }
   }
   return "The strategy request could not be completed.";
 }

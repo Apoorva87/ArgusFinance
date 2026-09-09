@@ -24,10 +24,18 @@ export function EvaluationPanel({ evaluation, savedAt }: EvaluationPanelProps) {
       <div className="evidence-strip" aria-label="Evaluation provenance">
         <span>Source {evaluation.source_status}</span>
         <span>{timestamp(evaluation.source_timestamp)} UTC</span>
+        <span>Snapshot {evaluation.snapshot_id}</span>
         <span>{evaluation.analytics_version}</span>
         {savedAt && <span>Saved {timestamp(savedAt)} UTC</span>}
       </div>
       {evaluation.warnings.map((warning) => <aside className="strategy-warning" role="status" key={warning}>{warning}</aside>)}
+      {(evaluation.maximum_profit === null || evaluation.maximum_loss === null) && <p className="tail-note">
+        {evaluation.maximum_profit === null && evaluation.maximum_loss === null
+          ? "Unlimited profit and loss continue beyond the plotted range."
+          : evaluation.maximum_profit === null
+            ? "Unlimited profit continues beyond the plotted range."
+            : "Unlimited loss continues beyond the plotted range."}
+      </p>}
       <div className="strategy-results-grid">
         <PayoffChart evaluation={evaluation} />
         <aside className="risk-readout" aria-labelledby="risk-heading">
@@ -44,6 +52,13 @@ export function EvaluationPanel({ evaluation, savedAt }: EvaluationPanelProps) {
           <p className="eligibility-note">{evaluation.eligible ? "Structurally eligible for research." : "Not eligible for research."} This is not an investment ranking.</p>
         </aside>
       </div>
+      <section className="entry-legs" aria-labelledby="entry-legs-heading">
+        <div className="section-heading"><h2 id="entry-legs-heading">Entry legs</h2><span>{evaluation.pricing === "NATURAL" ? "Natural quotes" : "Hypothetical midpoint quotes"}</span></div>
+        <div className="table-wrap"><table aria-label="Resolved entry legs">
+          <thead><tr><th scope="col">Side</th><th scope="col">Qty</th><th scope="col">Strike</th><th scope="col">Type</th><th scope="col">Expiration</th><th scope="col">Entry premium</th></tr></thead>
+          <tbody>{evaluation.legs.map((leg, index) => <tr key={`${leg.expiration}-${leg.strike}-${leg.option_type}-${index}`}><td>{leg.side}</td><td>{leg.quantity}</td><td>{leg.strike}</td><td>{leg.option_type}</td><td>{leg.expiration}</td><td>{money(leg.entry_premium)}</td></tr>)}</tbody>
+        </table></div>
+      </section>
     </div>
   );
 }

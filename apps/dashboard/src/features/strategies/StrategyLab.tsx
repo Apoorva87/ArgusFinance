@@ -14,12 +14,18 @@ import { EvaluationPanel } from "./EvaluationPanel";
 
 interface StrategyLabProps { snapshot: MarketSnapshot; onSaved?: (saved: SavedStrategy) => void }
 
-function identity(option: Pick<OptionQuote, "strike" | "option_type">): string { return `${option.strike}|${option.option_type}`; }
+function normalizedDecimal(value: string | number): string {
+  const text = String(value);
+  if (!text.includes(".")) return text;
+  return text.replace(/0+$/, "").replace(/\.$/, "");
+}
+
+function identity(option: Pick<OptionQuote, "strike" | "option_type">): string { return `${normalizedDecimal(option.strike)}|${option.option_type}`; }
 
 function initialLegs(snapshot: MarketSnapshot, expiration: string): StrategyLeg[] {
   const options = snapshot.options.filter((option) => option.expiration === expiration);
-  const buy = options.find((option) => String(option.strike) === "175" && option.option_type === "CALL");
-  const sell = options.find((option) => String(option.strike) === "185" && option.option_type === "CALL");
+  const buy = options.find((option) => normalizedDecimal(option.strike) === "175" && option.option_type === "CALL");
+  const sell = options.find((option) => normalizedDecimal(option.strike) === "185" && option.option_type === "CALL");
   if (buy && sell) return [
     { expiration, strike: String(buy.strike), option_type: buy.option_type, side: "BUY", quantity: 1 },
     { expiration, strike: String(sell.strike), option_type: sell.option_type, side: "SELL", quantity: 1 },
@@ -32,11 +38,13 @@ function initialDraft(snapshot: MarketSnapshot): StrategyDraft {
   const expirations = [...new Set(snapshot.options.map((option) => option.expiration))].sort();
   const preferred = expirations.find((expiration) => {
     const options = snapshot.options.filter((option) => option.expiration === expiration);
-    return options.some((option) => String(option.strike) === "175" && option.option_type === "CALL") && options.some((option) => String(option.strike) === "185" && option.option_type === "CALL");
+    return options.some((option) => normalizedDecimal(option.strike) === "175" && option.option_type === "CALL") && options.some((option) => normalizedDecimal(option.strike) === "185" && option.option_type === "CALL");
   }) ?? expirations[0] ?? "";
+  const hasCanonicalSpread = snapshot.options.some((option) => option.expiration === preferred && normalizedDecimal(option.strike) === "175" && option.option_type === "CALL")
+    && snapshot.options.some((option) => option.expiration === preferred && normalizedDecimal(option.strike) === "185" && option.option_type === "CALL");
   return {
     snapshot_id: snapshot.snapshot_id,
-    name: `${snapshot.underlying.ticker} 175 / 185 call spread`,
+    name: hasCanonicalSpread ? `${snapshot.underlying.ticker} 175 / 185 call spread` : `${snapshot.underlying.ticker} strategy`,
     status: "WATCH",
     thesis: "",
     pricing: "NATURAL",
@@ -129,7 +137,8 @@ export function StrategyLab({ snapshot, onSaved }: StrategyLabProps) {
         <div><p className="eyebrow">Snapshot-backed research</p><h1>Strategy Lab</h1></div>
         <div className="provenance-line"><span>{snapshot.underlying.ticker} · ${Number(snapshot.underlying.price).toFixed(2)}</span><span>snapshot {snapshot.snapshot_id.slice(0, 8)}…</span></div>
       </header>
-      <section className="draft-panel" aria-labelledby="draft-heading">
+      <div className="strategy-builder">
+      <div className="strategy-editor"><section className="draft-panel" aria-labelledby="draft-heading">
         <div className="section-heading"><h2 id="draft-heading">Strategy draft</h2><span>1–4 contracts · shared expiration</span></div>
         <div className="draft-fields">
           <label>Name<input value={draft.name} maxLength={120} onChange={(event) => change((current) => ({ ...current, name: event.target.value }))} /></label>
@@ -138,6 +147,7 @@ export function StrategyLab({ snapshot, onSaved }: StrategyLabProps) {
           <label>Pricing<select value={draft.pricing} onChange={(event) => change((current) => ({ ...current, pricing: event.target.value as StrategyDraft["pricing"] }))}><option>NATURAL</option><option>MIDPOINT</option></select></label>
           <label>Fee per contract<input aria-label="Fee per contract" type="number" min="0" step="0.01" value={draft.fee_per_contract} onChange={(event) => change((current) => ({ ...current, fee_per_contract: event.target.value }))} /></label>
         </div>
+        {draft.pricing === "MIDPOINT" && <p className="pricing-caution" role="status">Midpoint pricing is hypothetical and may not be executable.</p>}
         <div className="leg-table-wrap">
           <table className="leg-table" aria-label="Strategy legs">
             <thead><tr><th scope="col">Side</th><th scope="col">Qty</th><th scope="col">Strike</th><th scope="col">Type</th><th scope="col">Contract</th></tr></thead>
@@ -158,6 +168,16 @@ export function StrategyLab({ snapshot, onSaved }: StrategyLabProps) {
           if (option) change((current) => ({ ...current, legs: [...current.legs, { expiration, strike: String(option.strike), option_type: option.option_type, side: "BUY", quantity: 1 }] }));
         }}>Add leg</button>
       </section>
+      <div className="strategy-actions">
+        <button className="primary-button" type="button" onClick={evaluate} disabled={phase !== "idle" || draft.legs.length === 0 || !draft.name.trim()}>{phase === "evaluating" ? "Evaluating…" : "Evaluate strategy"}</button>
+        <button className="secondary-button" type="button" onClick={save} disabled={!evaluation || phase !== "idle"}>{phase === "saving" ? "Saving…" : "Save strategy"}</button>
+        {dirtyAfterEvaluation && <p role="status">Inputs changed. Evaluate again before saving.</p>}
+        {notice && <p role="status">{notice}</p>}
+      </div></div>
+      <section className="strategy-analysis" aria-label="Strategy evaluation">
+        {evaluation ? <EvaluationPanel evaluation={evaluation} /> : <div className="analysis-empty"><div className="payoff-axis" aria-hidden="true"><span /><span /></div><h2>Expiration payoff</h2><p>Evaluate the selected snapshot contracts to draw the exact payoff and risk limits.</p></div>}
+      </section>
+      </div>
       <section className="research-notes" aria-labelledby="notes-heading">
         <div className="section-heading"><h2 id="notes-heading">Thesis and review boundaries</h2><span>Saved with original evidence</span></div>
         <label>Thesis<textarea value={draft.thesis} maxLength={4000} onChange={(event) => change((current) => ({ ...current, thesis: event.target.value }))} /></label>
@@ -171,13 +191,6 @@ export function StrategyLab({ snapshot, onSaved }: StrategyLabProps) {
           <button className="quiet-button" type="button" disabled={draft.boundaries.length >= 10} onClick={addBoundary}>Add review boundary</button>
         </div>
       </section>
-      <div className="strategy-actions">
-        <button className="primary-button" type="button" onClick={evaluate} disabled={phase !== "idle" || draft.legs.length === 0 || !draft.name.trim()}>{phase === "evaluating" ? "Evaluating…" : "Evaluate strategy"}</button>
-        <button className="secondary-button" type="button" onClick={save} disabled={!evaluation || phase !== "idle"}>{phase === "saving" ? "Saving…" : "Save strategy"}</button>
-        {dirtyAfterEvaluation && <p role="status">Inputs changed. Evaluate again before saving.</p>}
-        {notice && <p role="status">{notice}</p>}
-      </div>
-      {evaluation && <EvaluationPanel evaluation={evaluation} />}
     </main>
   );
 }

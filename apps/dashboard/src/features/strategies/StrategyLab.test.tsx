@@ -112,4 +112,57 @@ describe("StrategyLab", () => {
 
     expect(await screen.findByText("Saved strategy saved-1.")).toBeInTheDocument();
   });
+
+  it("recognizes canonical spread strikes serialized with fixed decimal scale", () => {
+    const scaled = {
+      ...nvdaSnapshot,
+      options: nvdaSnapshot.options.map((option) => ({
+        ...option,
+        strike: `${option.strike}.000000`,
+      })),
+    };
+    vi.stubGlobal("fetch", vi.fn());
+    render(<StrategyLab snapshot={scaled} />);
+
+    expect(screen.getByRole("textbox", { name: "Name" })).toHaveValue("NVDA 175 / 185 call spread");
+    expect(screen.getByRole("combobox", { name: "Strike for leg 1" })).toHaveValue("175.000000");
+    expect(screen.getByRole("combobox", { name: "Strike for leg 2" })).toHaveValue("185.000000");
+  });
+
+  it("uses a neutral strategy name when the canonical spread is unavailable", () => {
+    const otherChain = {
+      ...nvdaSnapshot,
+      options: nvdaSnapshot.options.map((option) => ({ ...option, strike: String(Number(option.strike) + 10) })),
+    };
+    vi.stubGlobal("fetch", vi.fn());
+    render(<StrategyLab snapshot={otherChain} />);
+
+    expect(screen.getByRole("textbox", { name: "Name" })).toHaveValue("NVDA strategy");
+  });
+
+  it("labels midpoint pricing as hypothetical before evaluation", () => {
+    vi.stubGlobal("fetch", vi.fn());
+    render(<StrategyLab snapshot={nvdaSnapshot} />);
+    fireEvent.change(screen.getByRole("combobox", { name: "Pricing" }), { target: { value: "MIDPOINT" } });
+    expect(screen.getByText(/Midpoint pricing is hypothetical/i)).toBeInTheDocument();
+  });
+
+  it("explains that an unlimited tail continues beyond the finite chart", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockImplementation(() => response({ ...evaluation, maximum_profit: null })));
+    render(<StrategyLab snapshot={nvdaSnapshot} />);
+    fireEvent.click(screen.getByRole("button", { name: "Evaluate strategy" }));
+    expect(await screen.findByText(/Unlimited profit continues beyond the plotted range/i)).toBeInTheDocument();
+  });
+
+  it("shows a readable evaluation error and allows another attempt", async () => {
+    const fetchMock = vi.fn()
+      .mockImplementationOnce(() => response({ detail: "duplicate contract rows are not allowed" }, 422))
+      .mockImplementationOnce(() => response(evaluation));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<StrategyLab snapshot={nvdaSnapshot} />);
+    fireEvent.click(screen.getByRole("button", { name: "Evaluate strategy" }));
+    expect(await screen.findByText("duplicate contract rows are not allowed")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Evaluate strategy" }));
+    expect(await screen.findByText("Maximum loss")).toBeInTheDocument();
+  });
 });

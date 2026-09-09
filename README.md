@@ -1,8 +1,9 @@
 # ArgusFinance
 
-ArgusFinance is a local-first options research workbench. The current
-foundation captures one deterministic NVDA market snapshot and exposes the same
-persisted data through FastAPI, the CLI, MCP tools, and a local React dashboard.
+ArgusFinance is a local-first options research workbench. It captures a
+deterministic NVDA market snapshot, evaluates expiration payoff from its stored
+option quotes, and preserves immutable strategy entry evidence through FastAPI,
+the CLI, MCP tools, and a local React dashboard.
 
 ## Local setup
 
@@ -55,6 +56,34 @@ The launcher prints and serves these local URLs:
 
 Press Ctrl-C to stop both processes. If either process exits, the launcher
 terminates and reaps its sibling.
+
+## Strategy Lab workflow
+
+Open the dashboard and use the top navigation to move between the existing
+Market explorer, Strategy Lab, and Saved Strategies. If no evidence has been
+captured, **Load demo snapshot** persists the packaged deterministic NVDA data.
+It is always labeled frozen and hypothetical.
+
+Strategy Lab starts with the September 18, 2026 NVDA 175/185 bull call vertical
+when those contracts exist in the snapshot. Natural pricing buys the 175 call
+at its $8.80 ask and sells the 185 call at its $3.75 bid, producing a $505 net
+debit and maximum loss, $495 maximum profit, and a $180.05 break-even before
+fees. Select one expiration and up to four BUY or SELL call/put legs, then set
+quantity, pricing, entry fees, status, thesis, and optional price or review-date
+boundaries.
+
+Choose **Evaluate strategy** to request backend-calculated payoff points, exact
+risk limits, break-evens, and snapshot-quoted net Greeks. The chart and its text
+scenario table use those returned values. Warnings retain their backend text;
+missing Greeks remain unavailable, and unlimited tails are identified beyond
+the finite chart. Any draft edit clears the result and disables saving until a
+new evaluation completes.
+
+Choose **Save strategy** after evaluation, then open **Saved Strategies** to
+review the original thesis, boundaries, resolved legs and entry premiums,
+pricing, payoff, source timestamp, and snapshot ID. Saved research remains
+available when no latest market snapshot exists. WATCH, PAPER, REAL_MANUAL, and
+SHADOW are research record labels; they do not simulate or place orders.
 
 ## Agent clients
 
@@ -122,9 +151,15 @@ action.
 
 ## Current limitations
 
-- Foundation market data is the deterministic NVDA fixture. The mock provider
+- Market data is currently the deterministic NVDA fixture. The mock provider
   loads the packaged fixture, while `ReplayMarketDataProvider` supports an
   injected local JSON path for offline replay.
+- Strategy analytics cover exact expiration payoff and quoted snapshot Greeks.
+  Pre-expiration price/time/volatility surfaces, model-derived Greeks,
+  calendars, and richer eligibility or evidence scoring are deferred.
+- Saved strategies preserve entry evidence. Active boundary monitoring,
+  entry-versus-current comparisons, adjustments, fills, and order lifecycle
+  workflows are deferred.
 - IBKR is diagnostic-handshake only. IBKR capture is not implemented.
 - The dashboard and API run locally; there is no hosted ArgusFinance service.
 - Paper and live order staging and placement are not implemented or permitted.

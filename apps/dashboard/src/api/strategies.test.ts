@@ -60,4 +60,10 @@ describe("strategy API", () => {
 
     await expect(evaluateStrategy(draft)).rejects.toEqual(new StrategyApiError(422, "selected contracts must share one expiration"));
   });
+
+  it("turns FastAPI field errors into readable input guidance", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ detail: [{ loc: ["body", "fee_per_contract"], msg: "Input should be greater than or equal to 0", type: "greater_than_equal" }] }), { status: 422 })));
+
+    await expect(evaluateStrategy(draft)).rejects.toEqual(new StrategyApiError(422, "fee_per_contract: Input should be greater than or equal to 0"));
+  });
 });

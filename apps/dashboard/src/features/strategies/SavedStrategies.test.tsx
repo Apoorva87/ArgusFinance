@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SavedStrategy } from "../../api/strategies";
@@ -66,6 +66,10 @@ describe("SavedStrategies", () => {
     expect(screen.getByText("Upside is plausible while price holds the review floor.")).toBeInTheDocument();
     expect(screen.getByText("Revisit the thesis")).toBeInTheDocument();
     expect(screen.getByText(/Aug 28, 2026/i)).toBeInTheDocument();
+    expect(screen.getByText("Snapshot 00000000-0000-0000-0000-000000000001")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Entry legs" })).toBeInTheDocument();
+    expect(screen.getByRole("row", { name: /BUY 1 175 CALL 2026-09-18 \$8.80/i })).toBeInTheDocument();
+    expect(screen.getByText("Natural quotes")).toBeInTheDocument();
     expect(screen.getByText("Unlimited")).toBeInTheDocument();
   });
 
@@ -79,5 +83,24 @@ describe("SavedStrategies", () => {
 
     expect(await screen.findByText("Saved strategy was not found")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Open NVDA defined-risk upside/i })).toBeInTheDocument();
+  });
+
+  it("does not let an older detail response replace the newest selection", async () => {
+    const newer = { ...saved, id: "newer-id", draft: { ...saved.draft, name: "Newer thesis" } };
+    let resolveOlder!: (value: Response) => void;
+    let resolveNewer!: (value: Response) => void;
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify([saved, newer]), { status: 200 }))
+      .mockImplementationOnce(() => new Promise<Response>((resolve) => { resolveOlder = resolve; }))
+      .mockImplementationOnce(() => new Promise<Response>((resolve) => { resolveNewer = resolve; }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<SavedStrategies />);
+    fireEvent.click(await screen.findByRole("button", { name: /Open NVDA defined-risk upside/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Open Newer thesis/i }));
+    await act(async () => resolveNewer(new Response(JSON.stringify(newer), { status: 200 })));
+    expect(await screen.findByRole("heading", { name: "Newer thesis" })).toBeInTheDocument();
+    await act(async () => resolveOlder(new Response(JSON.stringify(saved), { status: 200 })));
+    expect(screen.getByRole("heading", { name: "Newer thesis" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "NVDA defined-risk upside" })).not.toBeInTheDocument();
   });
 });

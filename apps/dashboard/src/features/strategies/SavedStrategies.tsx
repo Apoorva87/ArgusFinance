@@ -22,7 +22,10 @@ export function SavedStrategies() {
     listController.current?.abort();
     const controller = new AbortController(); listController.current = controller;
     setState({ kind: "loading" });
-    try { setState({ kind: "ready", strategies: await listStrategies(controller.signal) }); }
+    try {
+      const strategies = await listStrategies(controller.signal);
+      if (!controller.signal.aborted) setState({ kind: "ready", strategies });
+    }
     catch (error) { if (!controller.signal.aborted) setState({ kind: "error", detail: detail(error) }); }
   }, []);
 
@@ -35,7 +38,10 @@ export function SavedStrategies() {
     detailController.current?.abort();
     const controller = new AbortController(); detailController.current = controller;
     setSelected(null); setDetailState("loading"); setDetailError("");
-    try { setSelected(await getStrategy(id, controller.signal)); setDetailState("idle"); }
+    try {
+      const strategy = await getStrategy(id, controller.signal);
+      if (!controller.signal.aborted) { setSelected(strategy); setDetailState("idle"); }
+    }
     catch (error) { if (!controller.signal.aborted) { setDetailState("idle"); setDetailError(detail(error)); } }
   }
 
