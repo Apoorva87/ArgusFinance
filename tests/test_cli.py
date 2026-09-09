@@ -1,6 +1,7 @@
 """Command-line behavior for the local market workflow."""
 
 import json
+from pathlib import Path
 
 from typer.testing import CliRunner
 
@@ -55,6 +56,65 @@ def test_market_latest_reports_missing_snapshot_concisely(monkeypatch, tmp_path,
 
     assert result.exit_code != 0
     assert "No latest market snapshot found" in result.stderr
+    assert "Traceback" not in result.stderr
+
+
+def test_market_import_ibkr_normalizes_and_persists_raw_bundle(
+    monkeypatch, tmp_path: Path, apply_migrations
+) -> None:
+    _configure_local_state(monkeypatch, tmp_path, apply_migrations)
+    bundle_path = tmp_path / "nvda.json"
+    bundle_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "ticker": "NVDA",
+                "underlying": {
+                    "response": {
+                        "last": {"price": 226.06, "ts": 1788933498},
+                        "top-status": {"status": "REALTIME"},
+                    },
+                    "retrieved_at": "2026-09-09T06:00:01Z",
+                },
+                "options": [
+                    {
+                        "expiration": "2026-09-18",
+                        "strike": "225",
+                        "option_type": "CALL",
+                        "response": {
+                            "bid-ask": {"bid": 5.55, "ask": 5.65},
+                            "top-status": {"status": "FROZEN_DELAYED"},
+                        },
+                        "retrieved_at": "2026-09-09T06:00:02Z",
+                    }
+                ],
+                "notes": ["One sampled contract."],
+            }
+        ),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    imported = runner.invoke(app, ["market", "import-ibkr", str(bundle_path)])
+    latest = runner.invoke(app, ["market", "latest", "NVDA"])
+
+    assert imported.exit_code == 0
+    assert latest.exit_code == 0
+    assert json.loads(latest.stdout) == json.loads(imported.stdout)
+    assert json.loads(imported.stdout)["notes"][0] == "One sampled contract."
+
+
+def test_market_import_ibkr_reports_invalid_input_without_traceback(
+    monkeypatch, tmp_path: Path, apply_migrations
+) -> None:
+    _configure_local_state(monkeypatch, tmp_path, apply_migrations)
+    path = tmp_path / "invalid.json"
+    path.write_text("{}", encoding="utf-8")
+
+    result = CliRunner().invoke(app, ["market", "import-ibkr", str(path)])
+
+    assert result.exit_code != 0
+    assert "schema_version" in result.stderr
     assert "Traceback" not in result.stderr
 
 

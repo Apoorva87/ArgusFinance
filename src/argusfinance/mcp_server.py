@@ -7,6 +7,7 @@ from mcp.server.mcpserver import MCPServer
 
 from argusfinance.bootstrap import build_container
 from argusfinance.config import Settings
+from argusfinance.domain.market import MarketSnapshot
 from argusfinance.domain.strategy import StrategyDraft
 from argusfinance.services.market import MarketService
 from argusfinance.services.strategies import StrategyService
@@ -28,6 +29,14 @@ class MarketMcpTools:
     def get_latest_market_snapshot(self, ticker: str) -> dict[str, object]:
         """Read the newest persisted market snapshot for a ticker."""
         return cast(dict[str, object], self._service.latest(ticker).model_dump(mode="json"))
+
+    def import_market_snapshot(self, snapshot: dict[str, object]) -> dict[str, object]:
+        """Validate and persist one normalized snapshot object."""
+        normalized = MarketSnapshot.model_validate(snapshot)
+        return cast(
+            dict[str, object],
+            self._service.import_snapshot(normalized).model_dump(mode="json"),
+        )
 
 
 class StrategyMcpTools:
@@ -63,6 +72,10 @@ def build_mcp_server(
     @server.tool(name="get_latest_market_snapshot")
     def get_latest_market_snapshot(ticker: str) -> dict[str, object]:
         return tools.get_latest_market_snapshot(ticker)
+
+    @server.tool(name="import_market_snapshot")
+    def import_market_snapshot(snapshot: dict[str, object]) -> dict[str, object]:
+        return tools.import_market_snapshot(snapshot)
 
     if strategy_service is not None:
         strategy_tools = StrategyMcpTools(strategy_service)

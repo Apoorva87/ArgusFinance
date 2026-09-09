@@ -39,6 +39,7 @@ _SCHEMA = pa.schema(
     [
         pa.field("snapshot_id", pa.string(), nullable=False),
         pa.field("snapshot_created_at", pa.timestamp("us", tz="UTC"), nullable=False),
+        pa.field("snapshot_notes", pa.list_(pa.string()), nullable=False),
         pa.field("underlying_ticker", pa.string(), nullable=False),
         pa.field("underlying_price", pa.decimal128(28, 10), nullable=False),
         pa.field("underlying_source", pa.string(), nullable=False),
@@ -51,15 +52,15 @@ _SCHEMA = pa.schema(
         pa.field("option_type", pa.string(), nullable=False),
         pa.field("option_bid", pa.decimal128(28, 10), nullable=False),
         pa.field("option_ask", pa.decimal128(28, 10), nullable=False),
-        pa.field("option_volume", pa.int64(), nullable=False),
-        pa.field("option_open_interest", pa.int64(), nullable=False),
-        pa.field("option_implied_volatility", pa.decimal128(28, 12), nullable=False),
+        pa.field("option_volume", pa.int64(), nullable=True),
+        pa.field("option_open_interest", pa.int64(), nullable=True),
+        pa.field("option_implied_volatility", pa.decimal128(28, 12), nullable=True),
         pa.field("option_delta", pa.decimal128(28, 12), nullable=True),
         pa.field("option_gamma", pa.decimal128(28, 12), nullable=True),
         pa.field("option_theta", pa.decimal128(28, 12), nullable=True),
         pa.field("option_vega", pa.decimal128(28, 12), nullable=True),
         pa.field("option_source", pa.string(), nullable=False),
-        pa.field("option_source_timestamp", pa.timestamp("us", tz="UTC"), nullable=False),
+        pa.field("option_source_timestamp", pa.timestamp("us", tz="UTC"), nullable=True),
         pa.field("option_retrieved_at", pa.timestamp("us", tz="UTC"), nullable=False),
         pa.field("option_status", pa.string(), nullable=False),
     ]
@@ -194,6 +195,7 @@ def _rows(snapshot: MarketSnapshot) -> list[dict[str, object]]:
         {
             "snapshot_id": str(snapshot.snapshot_id),
             "snapshot_created_at": snapshot.created_at,
+            "snapshot_notes": list(snapshot.notes),
             "underlying_ticker": snapshot.underlying.ticker,
             "underlying_price": snapshot.underlying.price,
             "underlying_source": snapshot.underlying.source,
@@ -259,6 +261,7 @@ def _snapshot_from_rows(rows: list[dict[str, Any]], snapshot_id: UUID) -> Market
         underlying=underlying,
         options=options,
         created_at=first["snapshot_created_at"],
+        notes=tuple(first.get("snapshot_notes") or ()),
     )
 
 

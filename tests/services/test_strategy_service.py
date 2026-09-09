@@ -98,3 +98,25 @@ def test_selected_quote_provenance_warns_even_with_fresh_underlying(status, sour
     reader.snapshot = MarketSnapshot.model_validate(payload)
     evaluation = StrategyService(reader, None).evaluate(_draft())
     assert any(warning in item for item in evaluation.warnings)
+
+
+def test_selected_imported_quote_warns_for_frozen_delayed_and_missing_fields() -> None:
+    reader = SnapshotReader()
+    payload = reader.snapshot.model_dump()
+    for quote in payload["options"]:
+        if quote["expiration"] == date(2026, 9, 18):
+            quote.update(
+                status=MarketDataStatus.FROZEN_DELAYED,
+                source="ibkr",
+                source_timestamp=None,
+                implied_volatility=None,
+                open_interest=None,
+                volume=None,
+            )
+    reader.snapshot = MarketSnapshot.model_validate(payload)
+
+    evaluation = StrategyService(reader, None).evaluate(_draft())
+
+    assert any("FROZEN_DELAYED" in warning for warning in evaluation.warnings)
+    assert any("source timestamp" in warning for warning in evaluation.warnings)
+    assert any("implied volatility" in warning for warning in evaluation.warnings)

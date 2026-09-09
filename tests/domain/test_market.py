@@ -124,6 +124,39 @@ def test_option_quote_accepts_unavailable_greeks() -> None:
     assert option.vega is None
 
 
+def test_option_quote_accepts_unavailable_market_fields() -> None:
+    observed = datetime(2026, 8, 28, 20, 0, tzinfo=UTC)
+
+    option = _option_quote(observed).model_copy(
+        update={
+            "source_timestamp": None,
+            "volume": None,
+            "open_interest": None,
+            "implied_volatility": None,
+        }
+    )
+    validated = OptionQuote.model_validate(option.model_dump())
+
+    assert validated.source_timestamp is None
+    assert validated.volume is None
+    assert validated.open_interest is None
+    assert validated.implied_volatility is None
+
+
+def test_snapshot_preserves_notes_as_an_immutable_tuple() -> None:
+    observed = datetime(2026, 8, 28, 20, 0, tzinfo=UTC)
+
+    snapshot = MarketSnapshot(
+        snapshot_id=UUID("00000000-0000-0000-0000-000000000001"),
+        underlying=_underlying_quote(observed),
+        options=(_option_quote(observed),),
+        created_at=observed,
+        notes=["Sampled evidence."],
+    )
+
+    assert snapshot.notes == ("Sampled evidence.",)
+
+
 def test_market_snapshot_rejects_an_empty_option_chain() -> None:
     observed = datetime(2026, 8, 28, 20, 0, tzinfo=UTC)
 

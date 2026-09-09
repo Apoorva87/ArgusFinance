@@ -22,6 +22,7 @@ class RecordingMarketService:
         self.snapshot = snapshot
         self.capture_calls: list[tuple[str, int]] = []
         self.latest_calls: list[str] = []
+        self.import_calls: list[MarketSnapshot] = []
 
     def capture(self, ticker: str, weeks: int = 8) -> MarketSnapshot:
         self.capture_calls.append((ticker, weeks))
@@ -30,6 +31,10 @@ class RecordingMarketService:
     def latest(self, ticker: str) -> MarketSnapshot:
         self.latest_calls.append(ticker)
         return self.snapshot
+
+    def import_snapshot(self, snapshot: MarketSnapshot) -> MarketSnapshot:
+        self.import_calls.append(snapshot)
+        return snapshot
 
 
 @pytest.fixture
@@ -64,6 +69,19 @@ def test_get_latest_market_snapshot_delegates_once_and_preserves_capture_identit
     assert latest["snapshot_id"] == captured["snapshot_id"]
 
 
+def test_import_market_snapshot_validates_and_delegates_normalized_payload(
+    snapshot: MarketSnapshot,
+) -> None:
+    service = RecordingMarketService(snapshot)
+
+    result = MarketMcpTools(service).import_market_snapshot(
+        snapshot.model_dump(mode="json")
+    )
+
+    assert service.import_calls == [snapshot]
+    assert result == snapshot.model_dump(mode="json")
+
+
 def test_capture_market_snapshot_propagates_service_error(snapshot: MarketSnapshot) -> None:
     class FailingMarketService(RecordingMarketService):
         def capture(self, ticker: str, weeks: int = 8) -> MarketSnapshot:
@@ -81,6 +99,7 @@ def test_build_mcp_server_registers_only_public_market_tools(snapshot: MarketSna
     assert {tool.name for tool in registered_tools} == {
         "capture_market_snapshot",
         "get_latest_market_snapshot",
+        "import_market_snapshot",
     }
 
 
@@ -91,7 +110,7 @@ def test_build_mcp_server_adds_four_strategy_tools_when_service_is_supplied(snap
     registered_tools = asyncio.run(server.list_tools())
 
     assert {tool.name for tool in registered_tools} == {
-        "capture_market_snapshot", "get_latest_market_snapshot",
+        "capture_market_snapshot", "get_latest_market_snapshot", "import_market_snapshot",
         "evaluate_strategy", "save_strategy", "list_strategies", "get_strategy",
     }
 

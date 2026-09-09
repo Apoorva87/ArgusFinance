@@ -91,6 +91,7 @@ def test_write_uses_exact_explicit_parquet_schema(
     assert pq.read_schema(path).names == [
         "snapshot_id",
         "snapshot_created_at",
+        "snapshot_notes",
         "underlying_ticker",
         "underlying_price",
         "underlying_source",
@@ -136,6 +137,50 @@ def test_parquet_snapshot_round_trip_preserves_unavailable_greeks(
     assert snapshot_store.read(unavailable.snapshot_id).options[0].gamma is None
     assert snapshot_store.read(unavailable.snapshot_id).options[0].theta is None
     assert snapshot_store.read(unavailable.snapshot_id).options[0].vega is None
+
+
+def test_parquet_round_trip_preserves_nullable_option_fields_and_notes(
+    snapshot_store: SnapshotStore, snapshot  # type: ignore[no-untyped-def]
+) -> None:
+    option = snapshot.options[0].model_copy(
+        update={
+            "source_timestamp": None,
+            "volume": None,
+            "open_interest": None,
+            "implied_volatility": None,
+        }
+    )
+    unavailable = snapshot.model_copy(
+        update={"options": (option, *snapshot.options[1:]), "notes": ("Sampled chain.",)}
+    )
+
+    path = snapshot_store.write(unavailable)
+    schema = pq.read_schema(path)
+    restored = snapshot_store.read(unavailable.snapshot_id)
+
+    for field in (
+        "option_source_timestamp",
+        "option_volume",
+        "option_open_interest",
+        "option_implied_volatility",
+    ):
+        assert schema.field(field).nullable
+    assert restored == unavailable
+    assert restored.notes == ("Sampled chain.",)
+
+
+def test_read_old_snapshot_without_notes_defaults_to_empty_tuple(
+    snapshot_store: SnapshotStore, snapshot  # type: ignore[no-untyped-def]
+) -> None:
+    path = snapshot_store.write(snapshot)
+    table = pq.read_table(path)
+    if "snapshot_notes" in table.schema.names:
+        table = table.drop(["snapshot_notes"])
+        pq.write_table(table, path)
+
+    restored = snapshot_store.read(snapshot.snapshot_id)
+
+    assert restored.notes == ()
 
 
 def test_read_returns_options_in_canonical_order(

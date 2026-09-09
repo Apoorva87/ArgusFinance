@@ -209,3 +209,54 @@ def test_repeated_capture_returns_persisted_snapshot_without_duplicate_metadata_
     assert provider.calls == 2
     assert parquet_path.read_bytes() == before
     assert metadata_repository.get(str(first.snapshot_id)) is not None
+
+
+def test_import_uses_shared_publication_and_becomes_latest_without_provider_call(
+    snapshot_store: SnapshotStore, metadata_repository: SnapshotMetadataRepository
+) -> None:
+    provider = CountingProvider()
+    service = MarketService(provider, snapshot_store, metadata_repository)
+    snapshot = MockMarketDataProvider().get_snapshot("NVDA").model_copy(
+        update={"notes": ("Imported real connector evidence.",)}
+    )
+
+    imported = service.import_snapshot(snapshot)
+
+    assert imported == snapshot
+    assert provider.calls == 0
+    assert service.latest("NVDA") == snapshot
+    assert metadata_repository.get(str(snapshot.snapshot_id)) is not None
+
+
+def test_import_removes_new_parquet_when_metadata_persistence_fails(
+    snapshot_store: SnapshotStore,
+) -> None:
+    service = MarketService(
+        MockMarketDataProvider(), snapshot_store, FailingMetadataRepository()
+    )
+    snapshot = MockMarketDataProvider().get_snapshot("NVDA")
+
+    with pytest.raises(RuntimeError, match="metadata failed"):
+        service.import_snapshot(snapshot)
+
+    assert list(snapshot_store.root.rglob("*.parquet")) == []
+
+
+def test_import_conflict_does_not_replace_immutable_snapshot(
+    snapshot_store: SnapshotStore, metadata_repository: SnapshotMetadataRepository
+) -> None:
+    service = MarketService(MockMarketDataProvider(), snapshot_store, metadata_repository)
+    original = MockMarketDataProvider().get_snapshot("NVDA")
+    service.import_snapshot(original)
+    conflicting = original.model_copy(
+        update={
+            "underlying": original.underlying.model_copy(
+                update={"price": original.underlying.price + 1}
+            )
+        }
+    )
+
+    with pytest.raises(ValueError, match="immutable"):
+        service.import_snapshot(conflicting)
+
+    assert service.get(original.snapshot_id) == original

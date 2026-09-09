@@ -151,11 +151,28 @@ def _premium(quote: OptionQuote, side: LegSide, pricing: Pricing) -> Decimal:
 def _warnings(snapshot: MarketSnapshot, selected_quotes: list[OptionQuote]) -> list[str]:
     warnings: list[str] = []
     evidence: list[UnderlyingQuote | OptionQuote] = [snapshot.underlying, *selected_quotes]
-    if any(quote.status is MarketDataStatus.FROZEN or quote.source == "mock" for quote in evidence):
-        warnings.append("FROZEN/mock snapshot: hypothetical analysis, not live market evidence")
+    if any(
+        quote.status in {MarketDataStatus.FROZEN, MarketDataStatus.FROZEN_DELAYED}
+        or quote.source == "mock"
+        for quote in evidence
+    ):
+        warnings.append(
+            "FROZEN/FROZEN_DELAYED/mock snapshot: hypothetical analysis, not live market evidence"
+        )
+    if any(quote.status in {MarketDataStatus.DELAYED, MarketDataStatus.FROZEN_DELAYED} for quote in evidence):
+        warnings.append("Selected evidence includes a DELAYED or FROZEN_DELAYED quote")
+    if any(quote.source_timestamp is None for quote in selected_quotes):
+        warnings.append("Selected option evidence has no bid/ask source timestamp")
+    if any(quote.implied_volatility is None for quote in selected_quotes):
+        warnings.append("Selected option evidence has unavailable implied volatility")
+    if any(quote.open_interest is None for quote in selected_quotes):
+        warnings.append("Selected option evidence has unavailable open interest")
+    if any(quote.volume is None for quote in selected_quotes):
+        warnings.append("Selected option evidence has unavailable volume")
     now = datetime.now(UTC)
     if any(
         quote.status in {MarketDataStatus.REALTIME, MarketDataStatus.DELAYED}
+        and quote.source_timestamp is not None
         and (now - quote.source_timestamp).total_seconds() > 86400
         for quote in evidence
     ):

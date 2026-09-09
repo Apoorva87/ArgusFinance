@@ -41,6 +41,14 @@ class MarketService:
         except ValueError as error:
             raise ProviderInputError(str(error)) from error
 
+        return self._publish(snapshot)
+
+    def import_snapshot(self, snapshot: MarketSnapshot) -> MarketSnapshot:
+        """Persist a caller-normalized snapshot through the capture publication path."""
+        return self._publish(snapshot)
+
+    def _publish(self, snapshot: MarketSnapshot) -> MarketSnapshot:
+        """Atomically coordinate immutable Parquet and metadata publication."""
         with self._snapshot_store.lock(snapshot.snapshot_id):
             existed_before_write = self._snapshot_exists(snapshot)
             parquet_path = self._snapshot_store.write(snapshot)

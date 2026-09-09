@@ -15,6 +15,7 @@ class MarketDataStatus(str, Enum):
     REALTIME = "REALTIME"
     DELAYED = "DELAYED"
     FROZEN = "FROZEN"
+    FROZEN_DELAYED = "FROZEN_DELAYED"
     UNAVAILABLE = "UNAVAILABLE"
 
 
@@ -25,7 +26,11 @@ class _MarketValue(BaseModel):
 
     @field_validator("source_timestamp", "retrieved_at", "created_at", check_fields=False)
     @classmethod
-    def _timestamps_must_be_timezone_aware(cls, value: datetime) -> datetime:
+    def _timestamps_must_be_timezone_aware(
+        cls, value: datetime | None
+    ) -> datetime | None:
+        if value is None:
+            return None
         if value.tzinfo is None or value.utcoffset() is None:
             raise ValueError("timestamp must be timezone-aware")
         return value.astimezone(UTC)
@@ -59,15 +64,15 @@ class OptionQuote(_MarketValue):
     option_type: Literal["CALL", "PUT"]
     bid: Decimal = Field(ge=0)
     ask: Decimal = Field(ge=0)
-    volume: int = Field(ge=0)
-    open_interest: int = Field(ge=0)
-    implied_volatility: Decimal = Field(ge=0)
+    volume: int | None = Field(default=None, ge=0)
+    open_interest: int | None = Field(default=None, ge=0)
+    implied_volatility: Decimal | None = Field(default=None, ge=0)
     delta: Decimal | None = None
     gamma: Decimal | None = None
     theta: Decimal | None = None
     vega: Decimal | None = None
     source: str = Field(min_length=1)
-    source_timestamp: datetime
+    source_timestamp: datetime | None = None
     retrieved_at: datetime
     status: MarketDataStatus
 
@@ -93,6 +98,7 @@ class MarketSnapshot(_MarketValue):
     underlying: UnderlyingQuote
     options: tuple[OptionQuote, ...]
     created_at: datetime
+    notes: tuple[str, ...] = ()
 
     @field_validator("options")
     @classmethod

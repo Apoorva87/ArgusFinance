@@ -7,6 +7,7 @@ from uuid import UUID
 import typer
 
 from argusfinance.adapters.ibkr import IbkrMarketDataProvider
+from argusfinance.adapters.ibkr_connector import normalize_ibkr_bundle
 from argusfinance.bootstrap import build_container
 from argusfinance.config import Settings
 from argusfinance.domain.strategy import StrategyDraft
@@ -73,6 +74,20 @@ def market_latest(ticker: str) -> None:
     try:
         snapshot = _market_service().latest(ticker)
     except LatestSnapshotNotFoundError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(snapshot.model_dump_json(indent=2))
+
+
+@market_app.command("import-ibkr")
+def market_import_ibkr(json_file: Path) -> None:
+    """Normalize and persist one saved connected-IBKR response bundle."""
+    try:
+        raw = json.loads(json_file.read_text(encoding="utf-8"))
+        if not isinstance(raw, dict):
+            raise TypeError("IBKR bundle must be a JSON object")
+        snapshot = _market_service().import_snapshot(normalize_ibkr_bundle(raw))
+    except (OSError, UnicodeError, json.JSONDecodeError, TypeError, ValueError) as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=1) from error
     typer.echo(snapshot.model_dump_json(indent=2))
