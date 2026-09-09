@@ -29,19 +29,19 @@ Option source_timestamp, volume, open_interest, implied_volatility become nullab
 MarketDataStatus gains FROZEN_DELAYED. MarketSnapshot.notes is tuple[str,...] = ().
 Underlying timestamp remains required. Preserve old Parquet snapshots without notes.
 
-- [ ] Write failing tests for raw bundle normalization, invalid IV to null, correct
+- [x] Write failing tests for raw bundle normalization, invalid IV to null, correct
   call/put OI, missing bid/ask timestamp remains null, crossed/missing quote skip
   note, no usable options rejection, invalid underlying rejection, nullable
   Parquet round-trip and old snapshot compatibility. Use representative raw
   response fields: last {price:226.06,ts:1788933498}, top-status {status:REALTIME},
   bid-ask {bid:5.55,ask:5.65}, option-midpoint-iv {annualIv:-15.874,isValid:false},
   option-open-interest {callInterest:46321,putInterest:0}, volume {volume:0}.
-- [ ] Run the new tests and record expected failures before implementation.
-- [ ] Implement normalization and reuse capture's lock/write/metadata/compensation
+- [x] Run the new tests and record expected failures before implementation.
+- [x] Implement normalization and reuse capture's lock/write/metadata/compensation
   path for imports. Unknown status maps to UNAVAILABLE; no underlying source ts
   rejects import. Null option timestamp never calls arithmetic. Imported quotes
   warn for missing timestamps, IV and frozen/delayed status.
-- [ ] Verify HTTP/CLI/MCP imports see the same saved snapshot; input errors are
+- [x] Verify HTTP/CLI/MCP imports see the same saved snapshot; input errors are
   explicit and UUID conflict remains immutable. Run relevant backend tests,
   Ruff and strict mypy; self-review and commit owned files only.
 
@@ -54,32 +54,32 @@ Interfaces: fetchLatestSnapshot(ticker, signal) remains; response now permits
 null option source_timestamp/volume/open_interest/implied_volatility, optional
 notes and FROZEN_DELAYED. Underlying timestamp remains required.
 
-- [ ] Write failing tests for ticker switching to AAPL, missing non-NVDA state
+- [x] Write failing tests for ticker switching to AAPL, missing non-NVDA state
   without demo action, stale response rejection, ticker changes resetting
   Strategy Lab, reload action, null OI not appearing as measured zero, and
   frozen options warning alongside realtime underlying.
-- [ ] Run new tests and record expected failures.
-- [ ] Add accessible seven-ticker selection, reload saved snapshot, clear draft
+- [x] Run new tests and record expected failures.
+- [x] Add accessible seven-ticker selection, reload saved snapshot, clear draft
   on ticker/snapshot change, abort plus identity guards for all response paths.
   Preserve independent Saved Strategies access and explicitly labeled NVDA demo.
-- [ ] Show snapshot age/retrieval timestamps and notes; disclose sampled coverage,
+- [x] Show snapshot age/retrieval timestamps and notes; disclose sampled coverage,
   frozen option statuses, absent source timestamps, null IV/OI/Greeks. Partial
   liquidity totals must say partial and never imply missing contracts equal zero.
   Match existing workbench styling with responsive selector; no new dependencies.
-- [ ] Run dashboard tests and production build; self-review and commit owned files.
+- [x] Run dashboard tests and production build; self-review and commit owned files.
 
 ### Task 3: Populate, document and exercise the app
 
 Ownership: controller operates connected tools and local runtime; docs/README.md
 and skills/evaluate-ticker/SKILL.md workflow instructions may be updated here.
 
-- [ ] Resolve exact US option roots for all tickers. Collect underlying price and
+- [x] Resolve exact US option roots for all tickers. Collect underlying price and
   parameters, then three standard expirations in eight weeks and bounded near-spot
   option quotes. Record raw JSON plus each retrieval timestamp in ignored data/.
-- [ ] Import each through the new CLI with the same Settings database/state paths
+- [x] Import each through the new CLI with the same Settings database/state paths
   used by the app. Check latest API ticker, provenance, option count and notes.
-- [ ] Document capture/import/reload workflow, portability, limitations and exact
+- [x] Document capture/import/reload workflow, portability, limitations and exact
   skill narrow-workflow boundary; no claim of complete research synthesis.
-- [ ] Start local API/dashboard, exercise ticker and strategy flows; run full
+- [x] Start local API/dashboard, exercise ticker and strategy flows; run full
   applicable tests/checks once after integration and obtain final branch review.
-- [ ] Record results and remaining constraints; leave the user the dashboard URL.
+- [x] Record results and remaining constraints; leave the user the dashboard URL.

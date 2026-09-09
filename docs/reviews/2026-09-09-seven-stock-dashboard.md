@@ -50,6 +50,14 @@ source/tests/scripts/migrations, and strict type checking passes for 33 files.
 Task review found one Greek precision issue; its focused regression passed and
 the scoped re-review confirmed it addressed, with no new important findings.
 
+Final branch review identified unsupported precision at the normalized HTTP/MCP
+import boundary. Fix `54e0a63` validates against the actual Arrow storage schema
+before publication and rejects unsupported decimal precision or int64 overflow
+without modifying submitted evidence. HTTP returns 422 and MCP reports a clear
+input error. Fourteen new regression cases passed, along with all 51 covering
+storage/service/API/MCP tests, scoped Ruff and strict type checking for three
+changed source files.
+
 ## Reusable workflow and design rulings
 
 - Use the connected tools plus reusable importer, retaining the local-first
@@ -103,3 +111,11 @@ no dependencies were added.
    rounding beyond ten and twelve fractional places respectively.
 4. One sticky header uses its actual content height. Payoff labels wrap in an
    adjacent list, trading inline annotation placement for readable nearby values.
+
+## Review closeout
+
+Backend and frontend task reviews are approved. Final whole-change review of
+`858e25e..75336a0` found the normalized-import validation issue recorded above.
+The scoped re-review of `75336a0..54e0a63` confirmed it addressed with no new
+Critical or Important findings; final assessment: ready. The local health endpoint
+reported service `argusfinance`, status `ok`, mode `local`.
