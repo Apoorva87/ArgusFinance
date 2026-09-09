@@ -73,3 +73,43 @@ commit. Concurrent README and review-document changes are intentionally left
 uncommitted. The controller owns final browser screenshots against the already
 running API and dashboard; baseline and live-HMR inspection informed the small
 layout fixes above.
+
+## Fix round 1 — `f044ab9`
+
+Scoped review and browser acceptance identified four follow-up findings. The
+round addressed each one:
+
+- Frozen/delayed option copy now counts the affected quotes. A mixed chain says
+  exactly how many option quotes are affected, while a fully affected chain says
+  `All`; the underlying status is described in snapshot tense as “was reported
+  realtime.”
+- The partial open-interest regression now uses the same strike and CALL bucket
+  across two expirations, one measured at 120 and one null. It asserts the exact
+  Calls cell `120 (partial)` and separately verifies an all-null CALL bucket is
+  `Unavailable`.
+- Browser evidence in `aapl-lab-mobile-top.png` showed that two independently
+  sticky rows plus a guessed mobile offset moved the market controls over the
+  Strategy Lab heading. Navigation and market controls now share one sticky
+  wrapper; both children remain in normal flow, so the wrapper's actual height
+  determines the content boundary at every viewport.
+- Browser evidence in `aapl-lab-desktop.png` showed the close Spot 317.71 and
+  break-even 311.55 Plotly annotations overlapping. Marker labels now appear in
+  a wrapping, user-visible list adjacent to the plot. The exact dashed vertical
+  price lines and payoff values remain unchanged, and any number of close marker
+  labels can wrap without colliding.
+
+Automated RED used:
+
+- `npm test -- --run src/features/market/MarketSnapshotView.test.tsx src/features/strategies/PayoffChart.test.tsx`
+  — 3 failed and 4 passed. The expected failures were the all-frozen count,
+  mixed-chain count, and visible payoff-marker list. The stronger same-bucket
+  open-interest assertion passed against the existing aggregation behavior.
+
+The mobile header and close-marker overlap used the two browser screenshots
+above as their visual RED evidence. After the fixes, focused GREEN was:
+
+- `npm test -- --run src/App.test.tsx src/features/market/MarketSnapshotView.test.tsx src/features/strategies/PayoffChart.test.tsx src/features/strategies/StrategyLab.test.tsx`
+  — 29 passed in 4 files.
+- `npm run build` — TypeScript and Vite production build passed. Vite retained
+  the existing Plotly chunk-size warning.
+- `git diff --check` — clean.
