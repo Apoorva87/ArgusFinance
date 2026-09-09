@@ -42,7 +42,7 @@ export function PayoffChart({ evaluation }: PayoffChartProps) {
             yaxis: { title: { text: "Profit / loss ($)" }, gridcolor: "#19364b", zerolinecolor: "#8097a8" },
             showlegend: false,
             shapes: annotations.map((annotation) => ({ type: "line", x0: annotation.x, x1: annotation.x, y0: 0, y1: 1, yref: "paper", line: { color: annotation.color, width: 1, dash: "dot" } })),
-            annotations: annotations.map((annotation, index) => ({ x: annotation.x, y: 1, yref: "paper", text: annotation.text, showarrow: false, textangle: -90, yanchor: "bottom", xshift: index * 3, font: { color: annotation.color, size: 10 } })),
+            annotations: annotations.map((annotation, index) => ({ x: annotation.x, y: .98, yref: "paper", text: annotation.text, showarrow: false, textangle: -90, yanchor: "top", xshift: index * 3, font: { color: annotation.color, size: 10 } })),
           }}
           config={{ displayModeBar: false, responsive: true }}
           style={{ width: "100%", height: "430px" }}

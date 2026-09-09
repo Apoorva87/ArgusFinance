@@ -11,6 +11,7 @@ import {
   type StrategyLeg,
 } from "../../api/strategies";
 import { EvaluationPanel } from "./EvaluationPanel";
+import { formatStrike } from "../market/formatNumeric";
 
 interface StrategyLabProps { snapshot: MarketSnapshot; onSaved?: (saved: SavedStrategy) => void }
 
@@ -155,7 +156,7 @@ export function StrategyLab({ snapshot, onSaved }: StrategyLabProps) {
               <tr key={index}>
                 <td><label className="sr-only" htmlFor={`side-${index}`}>Side for leg {index + 1}</label><select id={`side-${index}`} value={leg.side} onChange={(event) => patchLeg(index, { side: event.target.value as StrategyLeg["side"] })}><option>BUY</option><option>SELL</option></select></td>
                 <td><label className="sr-only" htmlFor={`quantity-${index}`}>Quantity for leg {index + 1}</label><input id={`quantity-${index}`} type="number" min="1" max="100" value={leg.quantity} onChange={(event) => patchLeg(index, { quantity: Number(event.target.value) })} /></td>
-                <td><label className="sr-only" htmlFor={`strike-${index}`}>Strike for leg {index + 1}</label><select id={`strike-${index}`} value={leg.strike} onChange={(event) => patchLeg(index, { strike: event.target.value })}>{strikes.map((value) => <option key={value}>{value}</option>)}</select></td>
+                <td><label className="sr-only" htmlFor={`strike-${index}`}>Strike for leg {index + 1}</label><select id={`strike-${index}`} value={leg.strike} onChange={(event) => patchLeg(index, { strike: event.target.value })}>{strikes.map((value) => <option key={value} value={value}>{formatStrike(value)}</option>)}</select></td>
                 <td><label className="sr-only" htmlFor={`type-${index}`}>Option type for leg {index + 1}</label><select id={`type-${index}`} value={leg.option_type} onChange={(event) => patchLeg(index, { option_type: event.target.value as StrategyLeg["option_type"] })}><option>CALL</option><option>PUT</option></select></td>
                 <td><button className="quiet-button" type="button" onClick={() => change((current) => ({ ...current, legs: current.legs.filter((_, legIndex) => legIndex !== index) }))} disabled={draft.legs.length === 1}>Remove leg {index + 1}</button></td>
               </tr>

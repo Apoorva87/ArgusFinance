@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { nvdaSnapshot } from "../../test/nvdaSnapshot";
@@ -127,6 +127,7 @@ describe("StrategyLab", () => {
     expect(screen.getByRole("textbox", { name: "Name" })).toHaveValue("NVDA 175 / 185 call spread");
     expect(screen.getByRole("combobox", { name: "Strike for leg 1" })).toHaveValue("175.000000");
     expect(screen.getByRole("combobox", { name: "Strike for leg 2" })).toHaveValue("185.000000");
+    expect(within(screen.getByRole("combobox", { name: "Strike for leg 1" })).getByRole("option", { name: "175" })).toBeInTheDocument();
   });
 
   it("uses a neutral strategy name when the canonical spread is unavailable", () => {

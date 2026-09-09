@@ -1,6 +1,6 @@
 export type NumericValue = string | number;
 
-export type MarketDataStatus = "REALTIME" | "DELAYED" | "FROZEN" | "UNAVAILABLE";
+export type MarketDataStatus = "REALTIME" | "DELAYED" | "FROZEN" | "FROZEN_DELAYED" | "UNAVAILABLE";
 
 export interface UnderlyingQuote {
   ticker: string;
@@ -18,15 +18,15 @@ export interface OptionQuote {
   option_type: "CALL" | "PUT";
   bid: NumericValue;
   ask: NumericValue;
-  volume: number;
-  open_interest: number;
-  implied_volatility: NumericValue;
+  volume: number | null;
+  open_interest: number | null;
+  implied_volatility: NumericValue | null;
   delta: NumericValue | null;
   gamma: NumericValue | null;
   theta: NumericValue | null;
   vega: NumericValue | null;
   source: string;
-  source_timestamp: string;
+  source_timestamp: string | null;
   retrieved_at: string;
   status: MarketDataStatus;
 }
@@ -36,6 +36,7 @@ export interface MarketSnapshot {
   underlying: UnderlyingQuote;
   options: readonly OptionQuote[];
   created_at: string;
+  notes?: readonly string[];
 }
 
 export class MarketApiError extends Error {
