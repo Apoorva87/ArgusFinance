@@ -72,6 +72,24 @@ def test_import_conflict_returns_explicit_input_error_and_preserves_first(
     assert latest.json() == first.json()
 
 
+def test_import_rejects_unsupported_decimal_scale_without_publishing(
+    client: TestClient,
+) -> None:
+    payload = MockMarketDataProvider().get_snapshot("NVDA").model_dump(mode="json")
+    options = payload["options"]
+    assert isinstance(options, list)
+    options[0]["delta"] = "0.5000000000000001"
+
+    response = client.post("/api/market/import", json=payload)
+
+    assert response.status_code == 422
+    assert response.json() == {
+        "detail": "snapshot values are incompatible with immutable snapshot storage schema"
+    }
+    assert client.get("/api/market/NVDA/latest").status_code == 404
+    assert list(client.app.state.settings.state_dir.rglob("*.parquet")) == []
+
+
 def test_unsupported_mock_ticker_returns_provider_message(client: TestClient) -> None:
     response = client.post("/api/market/AAPL/snapshots?weeks=8")
 

@@ -2,17 +2,21 @@
 
 import asyncio
 import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 from argusfinance.adapters.mock_market import MockMarketDataProvider
+from argusfinance.bootstrap import build_container
+from argusfinance.config import Settings
 from argusfinance.domain.market import MarketSnapshot
 from argusfinance.mcp_server import (
     MarketMcpTools,
     build_mcp_server,
     main,
 )
+from argusfinance.services.market import LatestSnapshotNotFoundError
 
 
 class RecordingMarketService:
@@ -80,6 +84,33 @@ def test_import_market_snapshot_validates_and_delegates_normalized_payload(
 
     assert service.import_calls == [snapshot]
     assert result == snapshot.model_dump(mode="json")
+
+
+def test_import_market_snapshot_rejects_storage_incompatible_input_without_publishing(
+    snapshot: MarketSnapshot,
+    tmp_path: Path,
+    apply_migrations,  # type: ignore[no-untyped-def]
+) -> None:
+    database_url = f"sqlite:///{tmp_path / 'mcp.sqlite'}"
+    apply_migrations(database_url)
+    state_dir = tmp_path / "state"
+    service = build_container(
+        Settings(state_dir=state_dir, database_url=database_url)
+    ).market_service
+    payload = snapshot.model_dump(mode="json")
+    options = payload["options"]
+    assert isinstance(options, list)
+    options[0]["delta"] = "0.5000000000000001"
+
+    with pytest.raises(
+        ValueError,
+        match="snapshot values are incompatible with immutable snapshot storage schema",
+    ):
+        MarketMcpTools(service).import_market_snapshot(payload)
+
+    with pytest.raises(LatestSnapshotNotFoundError):
+        service.latest("NVDA")
+    assert list(state_dir.rglob("*.parquet")) == []
 
 
 def test_capture_market_snapshot_propagates_service_error(snapshot: MarketSnapshot) -> None:

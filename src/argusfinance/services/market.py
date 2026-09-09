@@ -45,6 +45,7 @@ class MarketService:
 
     def import_snapshot(self, snapshot: MarketSnapshot) -> MarketSnapshot:
         """Persist a caller-normalized snapshot through the capture publication path."""
+        self._snapshot_store.validate_compatible(snapshot)
         return self._publish(snapshot)
 
     def _publish(self, snapshot: MarketSnapshot) -> MarketSnapshot:

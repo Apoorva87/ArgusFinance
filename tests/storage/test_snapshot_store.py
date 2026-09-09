@@ -169,6 +169,48 @@ def test_parquet_round_trip_preserves_nullable_option_fields_and_notes(
     assert restored.notes == ("Sampled chain.",)
 
 
+@pytest.mark.parametrize(
+    ("target", "value"),
+    [
+        ("underlying.price", Decimal("180.25000000001")),
+        ("underlying.price", Decimal("1E+100")),
+        ("option.strike", Decimal("180.00000000001")),
+        ("option.bid", Decimal("3.95000000001")),
+        ("option.ask", Decimal("4.05000000001")),
+        ("option.implied_volatility", Decimal("0.4500000000001")),
+        ("option.delta", Decimal("0.5000000000001")),
+        ("option.gamma", Decimal("0.0100000000001")),
+        ("option.theta", Decimal("-0.1000000000001")),
+        ("option.vega", Decimal("0.2000000000001")),
+        ("option.volume", 2**80),
+        ("option.open_interest", 2**80),
+    ],
+)
+def test_write_rejects_values_incompatible_with_explicit_storage_schema(
+    snapshot_store: SnapshotStore,
+    snapshot,  # type: ignore[no-untyped-def]
+    target: str,
+    value: Decimal | int,
+) -> None:
+    area, field = target.split(".")
+    if area == "underlying":
+        incompatible = snapshot.model_copy(
+            update={
+                "underlying": snapshot.underlying.model_copy(update={field: value})
+            }
+        )
+    else:
+        option = snapshot.options[0].model_copy(update={field: value})
+        incompatible = snapshot.model_copy(
+            update={"options": (option, *snapshot.options[1:])}
+        )
+
+    with pytest.raises(ValueError, match="incompatible with immutable snapshot storage schema"):
+        snapshot_store.write(incompatible)
+
+    assert list(snapshot_store.root.rglob("*.parquet")) == []
+
+
 def test_read_old_snapshot_without_notes_defaults_to_empty_tuple(
     snapshot_store: SnapshotStore, snapshot  # type: ignore[no-untyped-def]
 ) -> None:

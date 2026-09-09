@@ -35,6 +35,10 @@ class SnapshotPathError(ValueError):
     """Raised when snapshot storage would use an unsafe filesystem path."""
 
 
+class SnapshotCompatibilityError(ValueError):
+    """Raised when normalized values cannot be represented by the storage schema."""
+
+
 _SCHEMA = pa.schema(
     [
         pa.field("snapshot_id", pa.string(), nullable=False),
@@ -89,18 +93,23 @@ class SnapshotStore:
                     f"snapshot {canonical.snapshot_id} already exists with different immutable content"
                 )
 
+            table = _snapshot_table(canonical)
             path = self._contained_destination(self._path_for(canonical))
             temporary = self._contained_destination(
                 path.with_name(f".{path.name}.{uuid4()}.tmp")
             )
             path.parent.mkdir(parents=True, exist_ok=True)
             try:
-                pq.write_table(pa.Table.from_pylist(_rows(canonical), schema=_SCHEMA), temporary)
+                pq.write_table(table, temporary)
                 os.replace(temporary, path)
             except BaseException:
                 temporary.unlink(missing_ok=True)
                 raise
             return path
+
+    def validate_compatible(self, snapshot: MarketSnapshot) -> None:
+        """Reject normalized values that cannot be stored exactly."""
+        _snapshot_table(_canonical_snapshot(snapshot))
 
     def read(self, snapshot_id: UUID | str) -> MarketSnapshot:
         """Read exactly one UUID-addressed file through DuckDB."""
@@ -222,6 +231,15 @@ def _rows(snapshot: MarketSnapshot) -> list[dict[str, object]]:
         }
         for option in snapshot.options
     ]
+
+
+def _snapshot_table(snapshot: MarketSnapshot) -> pa.Table:
+    try:
+        return pa.Table.from_pylist(_rows(snapshot), schema=_SCHEMA)
+    except (pa.ArrowInvalid, pa.ArrowTypeError, OverflowError) as error:
+        raise SnapshotCompatibilityError(
+            "snapshot values are incompatible with immutable snapshot storage schema"
+        ) from error
 
 
 def _snapshot_from_rows(rows: list[dict[str, Any]], snapshot_id: UUID) -> MarketSnapshot:

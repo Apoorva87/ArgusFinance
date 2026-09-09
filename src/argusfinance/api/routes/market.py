@@ -11,7 +11,10 @@ from argusfinance.services.market import (
     MarketService,
     ProviderInputError,
 )
-from argusfinance.storage.snapshots import SnapshotConflictError
+from argusfinance.storage.snapshots import (
+    SnapshotCompatibilityError,
+    SnapshotConflictError,
+)
 
 router = APIRouter(prefix="/api/market", tags=["market"])
 
@@ -24,7 +27,7 @@ def import_snapshot(
     """Persist one already-normalized market snapshot."""
     try:
         return service.import_snapshot(snapshot)
-    except SnapshotConflictError as error:
+    except (SnapshotCompatibilityError, SnapshotConflictError) as error:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)
         ) from error
