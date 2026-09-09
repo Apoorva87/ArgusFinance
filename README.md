@@ -1,9 +1,11 @@
 # ArgusFinance
 
-ArgusFinance is a local-first options research workbench. It captures a
-deterministic NVDA market snapshot, evaluates expiration payoff from its stored
-option quotes, and preserves immutable strategy entry evidence through FastAPI,
-the CLI, MCP tools, and a local React dashboard.
+ArgusFinance is a local-first options research workbench. It displays saved
+market snapshots for NVDA, AAPL, MSFT, AMZN, GOOGL, META, and TSLA, evaluates
+expiration payoff from stored option quotes, and preserves immutable strategy
+entry evidence through FastAPI, the CLI, MCP tools, and a local React dashboard.
+Snapshots can be imported from connected IBKR evidence; a deterministic NVDA
+fixture remains available for offline demos.
 
 ## Local setup
 
@@ -11,9 +13,8 @@ Install the locked Python and dashboard dependencies, then apply the SQLite
 metadata migration:
 
 ```bash
-uv sync --locked
-npm ci --prefix apps/dashboard
-uv run alembic upgrade head
+make install
+make migrate
 ```
 
 The migration step is required. Alembic owns the operational schema; no
@@ -85,6 +86,52 @@ pricing, payoff, source timestamp, and snapshot ID. Saved research remains
 available when no latest market snapshot exists. WATCH, PAPER, REAL_MANUAL, and
 SHADOW are research record labels; they do not simulate or place orders.
 
+## Seven-stock dashboard and real snapshots
+
+Select a ticker above the Market or Strategy Lab view. **Reload saved data**
+reads the newest snapshot already in the local database. It does not contact
+IBKR or provide streaming quotes. Switching ticker or snapshot resets the draft
+so a prior stock's legs cannot carry into the next evaluation.
+
+Use the `evaluate-ticker` skill with an explicit dashboard request, for example:
+
+> Refresh the ArgusFinance dashboards for NVDA, AAPL, MSFT, AMZN, GOOGL,
+> META, and TSLA using connected IBKR data. Capture and display snapshots only.
+
+The skill's [refresh reference](skills/evaluate-ticker/references/dashboard-refresh.md)
+documents exact US contract selection, bounded option sampling, raw-response
+retention, and the schema-v1 import envelope. An agent with the connected IBKR
+tools collects the data; the local web app does not have access to that chat
+connector. On another machine, install the project, enable the IBKR connector
+in the agent client, and run the same skill workflow.
+
+For a collected bundle, use the reusable importer:
+
+```bash
+uv run argusfinance market import-ibkr data/connector-captures/NVDA.json
+uv run argusfinance market latest NVDA
+```
+
+CLI, API and MCP must use the same `ARGUS_DATABASE_URL` and `ARGUS_STATE_DIR`.
+The importer validates the raw bundle, preserves source and retrieval times,
+and writes through the same immutable storage workflow as capture. Reimporting
+the same bundle is idempotent. HTTP `POST /api/market/import` and MCP
+`import_market_snapshot` accept already normalized snapshots.
+
+The dashboard shows the imported coverage notes and data quality. Missing IV,
+Greeks, option source timestamps, volume and open interest remain unavailable.
+Frozen/delayed options are identified independently of the underlying status;
+a REALTIME underlying label does not make its options live. Connector IV is
+currently not imported because its units are unspecified. Missing or crossed
+bid/ask quotes are skipped and counted. Monetary values are rounded half-even
+to the existing ten-decimal storage precision to remove JSON float artifacts.
+Partial open-interest totals are labeled as partial.
+
+This capture-and-display mode does not run the full company, historical,
+strategy and risk research workflow. Ask for a full evaluation when that
+analysis is wanted. Local captured data is ignored by Git; recreate it through
+the skill or copy the configured local database and snapshot files together.
+
 ## Agent clients
 
 Run `make install-agents` after cloning on another machine (Python 3.12+).
@@ -111,8 +158,10 @@ one directory into the location Claude Code expects:
   `skills/` with a relative symlink. Restart the session to pick up a newly
   linked skill.
 
-Both clients read the MCP server from `.mcp.json`, which exposes
-`capture_market_snapshot` and `get_latest_market_snapshot` over stdio.
+The MCP server is configured in `.mcp.json`. When loaded by the client, it
+exposes market capture/import/latest and strategy evaluate/save/list/get over
+stdio. Local server configuration alone does not guarantee the current chat
+session has exposed its tools; the CLI is an equivalent local entry point.
 
 The workflow's analytical roles (`company_analyst`, `market_options_analyst`,
 `historical_evidence_analyst`, `strategy_analyst`, `risk_critic`) are versioned
@@ -151,16 +200,18 @@ action.
 
 ## Current limitations
 
-- Market data is currently the deterministic NVDA fixture. The mock provider
-  loads the packaged fixture, while `ReplayMarketDataProvider` supports an
-  injected local JSON path for offline replay.
+- The default capture provider is the deterministic NVDA fixture. Real data
+  is imported from connected IBKR snapshots through the skill/CLI workflow;
+  dashboard reload reads saved evidence. `ReplayMarketDataProvider` also supports
+  an injected normalized JSON path for offline replay.
 - Strategy analytics cover exact expiration payoff and quoted snapshot Greeks.
   Pre-expiration price/time/volatility surfaces, model-derived Greeks,
   calendars, and richer eligibility or evidence scoring are deferred.
 - Saved strategies preserve entry evidence. Active boundary monitoring,
   entry-versus-current comparisons, adjustments, fills, and order lifecycle
   workflows are deferred.
-- IBKR is diagnostic-handshake only. IBKR capture is not implemented.
+- The local TWS adapter remains diagnostic-handshake only. Current IBKR
+  collection uses the agent's connected tools and the reusable snapshot importer.
 - The dashboard and API run locally; there is no hosted ArgusFinance service.
 - Paper and live order staging and placement are not implemented or permitted.
 - Any future OptionStrat handoff requires explicit user takeover. ArgusFinance

@@ -1,11 +1,22 @@
 ---
 name: evaluate-ticker
-description: Use when researching one or multiple ticker options positions or re-evaluating saved positions; never use for order execution.
+description: Use when refreshing ArgusFinance stock dashboards, researching one or multiple ticker options positions, or re-evaluating saved positions; never use for order execution.
 ---
+
+## Dashboard refresh
+
+When the user explicitly asks only to populate or refresh stock dashboards,
+follow [the dashboard refresh reference](references/dashboard-refresh.md).
+This narrow operation captures and displays market evidence. Report snapshot
+IDs, coverage and missing data; do not label it an investment evaluation or
+claim that the analytical roles ran. Requests for recommendations, ticker
+evaluation or strategy comparison require the full research workflow below.
+
+## Full research workflow
 
 Load project state plus every analytical role's playbook and `approved.md`; assign an evaluation ID.
 
-1. Call `capture_market_snapshot` once and record snapshot ID, timestamps, status, and missing fields. If capture fails, return `insufficient_data`; never fabricate.
+1. Obtain one persisted snapshot per ticker and record snapshot ID, timestamps, status, and missing fields. For current data, use the dashboard refresh reference to capture/import through the connected provider. Call `capture_market_snapshot` once only when its configured provider supplies the requested evidence; the default provider is NVDA demo data. Never substitute demo data for current research. If capture fails, return `insufficient_data`; never fabricate.
 2. Launch `company_analyst`, `market_options_analyst`, and `historical_evidence_analyst` as the first bounded evidence fan-out. Wait for all three. Record a failed lane explicitly; deadline pressure never permits skipping or substituting a lane.
 3. Dispatch `strategy_analyst` only after that fan-out, with the complete available evidence packet and explicit missing-lane markers. Wait for its result.
 4. After strategy output returns, dispatch `risk_critic` with the snapshot, evidence, and strategy packet. Wait for its result; the critic has no useful role earlier.
